@@ -10,7 +10,32 @@ const {
   doc 
 } = require('firebase/firestore');
 
-require('dotenv').config();
+const { app } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Busca inteligente do .env
+const possibleEnvPaths = [
+  path.join(__dirname, '..', '..', '.env'), // Raiz do projeto (modo dev)
+  path.resolve(process.cwd(), '.env'), // Diretório de execução
+  app && app.isPackaged ? path.join(path.dirname(process.execPath), '.env') : null, // Pasta do .exe (modo build)
+  app && app.isPackaged ? path.join(process.resourcesPath, '.env') : null, // Pasta resources
+].filter(Boolean);
+
+let envLoaded = false;
+for (const envPath of possibleEnvPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log(`[Firebase] .env encontrado e carregado de: ${envPath}`);
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn('[Firebase] AVISO: Arquivo .env não encontrado. O banco de dados pode não funcionar.');
+}
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
