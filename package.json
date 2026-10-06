@@ -1,0 +1,45 @@
+{
+  "name": "painel-contencao",
+  "version": "1.0.0",
+  "description": "Dashboard Desktop Nativo de Contenção & Metas Salesforce",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "electron-builder --win --dir"
+  },
+  "keywords": [
+    "electron",
+    "salesforce",
+    "contencao",
+    "dashboard"
+  ],
+  "author": "Grupo Ideal Trends",
+  "license": "UNLICENSED",
+  "build": {
+    "appId": "com.idealtrends.painelcontencao",
+    "productName": "Painel de Contencao",
+    "win": {
+      "target": "dir",
+      "icon": "assets/icon.ico",
+      "sign": null
+    },
+    "forceCodeSigning": false,
+    "asar": false,
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "data/**/*",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-reload": "^2.0.0-alpha.1"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.5",
+    "firebase": "^12.19.0"
+  }
+}

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SalesDash | Painel de Contenção</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="#38bdf8">
+          <path d="M19.39 10.74A7 7 0 0 0 8 5.72V5.5A4.5 4.5 0 0 0 3.5 10a4.5 4.5 0 0 0 .15 1.15A5 5 0 0 0 4 21h15a5 5 0 0 0 .39-9.96v-.3z" opacity="0.8"/>
+        </svg>
+        <span>SalesDash</span>
+      </div>
+
+      <nav class="sidebar-nav nav-tabs">
+        <button class="nav-tab active" data-tab="tab-dashboard" id="tabBtnDashboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          Dashboard
+        </button>
+        <button class="nav-tab" data-tab="tab-tasks" id="tabBtnTasks">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          Fila de Tarefas
+          <span class="badge-tab-count" id="navTasksCount">0</span>
+        </button>
+        <div class="nav-group">
+          <button class="nav-tab" data-tab="tab-ranking" id="tabBtnRanking" style="margin-bottom: 5px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            Ranking
+          </button>
+          <div id="rankingSubmenu" style="display: none; flex-direction: column; margin-left: 20px; border-left: 1px solid #334155; padding-left: 10px; gap: 4px;">
+            <button class="sidebar-subtab active" data-subtab="ranking-mensal" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Mensal</button>
+            <button class="sidebar-subtab" data-subtab="ranking-semanal" style="background: transparent; color: #94a3b8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Semanal</button>
+          </div>
+        </div>
+        <button class="nav-tab" data-tab="tab-settings" id="tabBtnSettings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Configurações
+        </button>
+      </nav>
+
+      <div class="sidebar-filters">
+        <h3 class="filter-title">FILTROS</h3>
+        <div class="filter-group-col">
+          <label>Período</label>
+          <div class="custom-select-container">
+            <select id="monthSelect" class="custom-select">
+              <option value="">Carregando meses...</option>
+            </select>
+            <div class="select-arrow">▼</div>
+          </div>
+        </div>
+        <div class="filter-group-col">
+          <label>Analista</label>
+          <div class="custom-select-container">
+            <select id="filterAnalyst" class="custom-select">
+              <option value="todos">Todos os Analistas</option>
+            </select>
+            <div class="select-arrow">▼</div>
+          </div>
+        </div>
+
+        <button class="btn-sync-sidebar" id="syncNowBtn">
+          <svg class="sync-icon" id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Atualizar Dados
+        </button>
+
+        <button class="btn-sync-sidebar" id="saveMonthToDbBtn" style="margin-top: 10px; background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; color: #38bdf8; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: middle;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Salvar Mês no Banco
+        </button>
+
+        <div class="sync-info-text">
+          <span id="lastSyncTime">Última sinc: --:--</span>
+          <span id="nextSyncCountdown">Auto em 30:00</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left" style="display: flex; align-items: center; gap: 32px;">
+          <div>
+            <h1>Visão Geral do Time</h1>
+            <p id="dashboardSubtitle">Resumo das atividades (Este Mês) - <span id="workdaysText">Dias úteis: -- / --</span></p>
+          </div>
+
+          <div class="custom-select-container" style="width: 200px; display: none;" id="rankingMetricContainer">
+            <select id="rankingMetricSelect" class="custom-select" style="background: rgba(15, 23, 42, 0.8); border-color: #334155; font-size: 13px; font-weight: 600; color: #38bdf8;">
+              <option value="horas">🏆 Ranking por Horas</option>
+              <option value="pontos">🎯 Ranking por Pontos</option>
+              <option value="tarefas">📋 Ranking por Tarefas</option>
+            </select>
+            <div class="select-arrow" style="color: #38bdf8;">▼</div>
+          </div>
+        </div>
+        
+        <div class="topbar-right">
+           <div class="connection-status-card" id="connectionCard">
+            <div class="status-pulse-dot" id="connectionDot"></div>
+            <div class="status-info">
+              <span class="status-title" id="connectionTitle">Verificando...</span>
+              <span class="status-user" id="connectionUser">Salesforce</span>
+            </div>
+            <div class="account-actions">
+              <button class="btn-ghost-sm" id="switchAccountBtn" title="Trocar Conta">Trocar Conta</button>
+              <button class="btn-ghost-sm btn-logout" id="authBtn" title="Sair">Sair</button>
+            </div>
+          </div>
+          <div class="user-avatar">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4" alt="Avatar">
+          </div>
+        </div>
+      </header>
+
+      <!-- ABA DASHBOARD -->
+      <section class="tab-pane active" id="tab-dashboard">
+        <!-- KPIs -->
+        <div class="kpi-grid">
+          <!-- Saldo (Mocked visually) -->
+          <div class="kpi-card glass-panel" id="kpiSaldoCard">
+            <div class="kpi-icon-wrapper blue">
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-title">Saldo de Horas Geral <span id="kpiSaldoBadge" class="kpi-badge">Em Ritmo</span></div>
+              <div class="kpi-value" id="kpiSaldoValue">0.0 h</div>
+            </div>
+          </div>
+
+          <!-- Previsão -->
+          <div class="kpi-card glass-panel">
+            <div class="kpi-icon-wrapper indigo">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-title">Previsão Parcial</div>
+              <div class="kpi-value" id="kpiPrevisaoValue">0.0 h</div>
+            </div>
+          </div>
+
+          <!-- Fila -->
+          <div class="kpi-card glass-panel">
+            <div class="kpi-icon-wrapper list">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-title">Na Fila (Aberto)</div>
+              <div class="kpi-value" id="kpiFilaValue">0</div>
+            </div>
+          </div>
+
+          <!-- Horas -->
+          <div class="kpi-card kpi-horas-card glass-panel">
+            <div class="kpi-icon-wrapper star">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-title">Horas Trabalhadas (Mês)</div>
+              <div class="kpi-value" id="kpiHorasTrabValue">0.0 h</div>
+              <div class="kpi-meta" id="kpiHorasTrabMeta">Meta Mensal: 0.0 h</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progresso da Equipe -->
+        <div class="glass-panel section-card w-full" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <h2>Progresso da Equipe</h2>
+          </div>
+          <div class="team-progress-list" id="teamProgressList">
+            <!-- Injetado via JS -->
+          </div>
+        </div>
+
+        <div class="dashboard-main-grid">
+          <div class="glass-panel section-card">
+            <div class="card-header">
+              <h2>Capacidade da Fila</h2>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #94a3b8;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="chart-container">
+              <div class="donut-chart">
+                <div class="donut-text">57%</div>
+              </div>
+              <p class="chart-subtext">29 de 50 tickets (Capacidade Max)</p>
+            </div>
+          </div>
+          
+           <!-- Desempenho -->
+          <div class="glass-panel section-card">
+             <div class="card-header">
+              <h2>Volume por Nível de Prioridade</h2>
+            </div>
+             <div class="table-container">
+                <table class="data-table styled-table compact-table" id="tabelaPrioridades">
+                  <thead>
+                    <tr>
+                      <th>Colaborador</th>
+                      <th>BLOG</th>
+                      <th>API/TOK</th>
+                      <th>URG</th>
+                      <th>ALTA</th>
+                      <th>MÉD</th>
+                      <th>BAIXA</th>
+                      <th>BKP</th>
+                      <th>BCO</th>
+                      <th>TOT</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaPrioridadesBody"></tbody>
+                  <tfoot id="tabelaPrioridadesFoot"></tfoot>
+                </table>
+             </div>
+          </div>
+        </div>
+
+        <div class="dashboard-main-grid" style="margin-top: 20px;">
+           <div class="glass-panel section-card w-full">
+              <div class="card-header">
+                <h2>Horas Semanais por Analista</h2>
+              </div>
+              <div class="table-container">
+                <table class="data-table styled-table" id="tabelaHorasSemanais">
+                  <thead>
+                    <tr>
+                      <th>Analista</th>
+                      <th>Sem. 1</th>
+                      <th>Sem. 2</th>
+                      <th>Sem. 3</th>
+                      <th>Sem. 4</th>
+                      <th>Sem. 5</th>
+                      <th>TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaHorasSemanaisBody"></tbody>
+                  <tfoot id="tabelaHorasSemanaisFoot"></tfoot>
+                </table>
+              </div>
+           </div>
+        </div>
+        
+        <div class="dashboard-main-grid" style="margin-top: 20px; margin-bottom: 20px;">
+           <div class="glass-panel section-card w-full">
+              <div class="card-header">
+                <h2>Tarefas Semanais</h2>
+              </div>
+              <div class="table-container">
+                <table class="data-table styled-table" id="tabelaTarefasSemanais">
+                  <thead>
+                    <tr>
+                      <th>Colaborador</th>
+                      <th>Sem 1</th>
+                      <th>Sem 2</th>
+                      <th>Sem 3</th>
+                      <th>Sem 4</th>
+                      <th>Sem 5</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaTarefasSemanaisBody"></tbody>
+                  <tfoot id="tabelaTarefasSemanaisFoot"></tfoot>
+                </table>
+              </div>
+           </div>
+        </div>
+
+      </section>
+
+      <!-- ABA CENTRAL DE TAREFAS -->
+      <section class="tab-pane" id="tab-tasks">
+        <div class="glass-panel section-card">
+           <div class="tasks-toolbar">
+              <div class="search-box">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="taskSearchInput" placeholder="Buscar por assunto, task ID ou analista..." />
+              </div>
+
+              <div class="filter-group">
+                <select id="filterCategory" class="filter-select">
+                  <option value="todos">Todas as Categorias</option>
+                  <option value="concluidas">Concluídas</option>
+                  <option value="fila">Em Aberto</option>
+                </select>
+                <select id="filterPrazo" class="filter-select">
+                  <option value="todos">Todas as Datas</option>
+                  <option value="no_prazo">No Prazo</option>
+                  <option value="atraso">Em Atraso</option>
+                </select>
+                <select id="filterPriority" class="filter-select">
+                  <option value="todos">Todas Prioridades</option>
+                  <option value="URGENTE">Urgente</option>
+                  <option value="ALTA">Alta</option>
+                  <option value="MÉDIA">Média</option>
+                  <option value="BAIXA">Baixa</option>
+                  <option value="BLOG">Blog</option>
+                  <option value="API/TOKEN">API / Token</option>
+                  <option value="T. DE BANCO">Troca de Banco</option>
+                  <option value="BACKUP">Backup</option>
+                </select>
+              </div>
+
+              <div class="tasks-stats-pill">
+                <span id="filteredCount">0</span> tarefas encontradas
+              </div>
+            </div>
+
+            <div class="table-container tasks-table-container">
+              <table class="data-table styled-table" id="tasksListTable">
+                <thead>
+                  <tr>
+                    <th>Analista</th>
+                    <th>Assunto</th>
+                    <th>Complexidade</th>
+                    <th>Horas</th>
+                    <th>Status</th>
+                    <th>Vencimento</th>
+                  </tr>
+                </thead>
+                <tbody id="tasksListBody"></tbody>
+              </table>
+            </div>
+        </div>
+      </section>
+
+      <!-- ABA RANKING -->
+      <section class="tab-pane" id="tab-ranking">
+        <!-- RANKING MENSAL -->
+        <div id="ranking-mensal" class="ranking-pane active" style="display: block;">
+          <div class="glass-panel section-card podium-container" style="margin-bottom: 20px;">
+            <div class="card-header" style="justify-content: center; margin-bottom: 20px;">
+              <h2 style="font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">🏆 Destaques do mês</h2>
+            </div>
+            <div class="podium" id="podiumContainer">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <div class="glass-panel section-card">
+            <div class="card-header">
+              <h2>Top Analistas (Metas Mensais)</h2>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-ghost-sm" id="exportPdfBtnMensal" title="Exportar para PDF" style="padding: 4px 10px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                  Exportar
+                </button>
+                <span style="color:#fbbf24">🏆</span>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="data-table styled-table ranking-table" id="tabelaMetas">
+                <thead>
+                  <tr>
+                    <th>Analista</th>
+                    <th>Carga</th>
+                    <th>Meta</th>
+                    <th>Prev.</th>
+                    <th>Horas</th>
+                    <th>Saldo</th>
+                    <th>Pts</th>
+                    <th>(%)</th>
+                    <th>Status</th>
+                    <th>CapFila</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaMetasBody"></tbody>
+                <tfoot id="tabelaMetasFoot"></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- RANKING SEMANAL -->
+        <div id="ranking-semanal" class="ranking-pane" style="display: none;">
+          <div class="glass-panel section-card podium-container" style="margin-bottom: 20px;">
+            <div class="card-header" style="justify-content: center; margin-bottom: 20px;">
+              <h2 style="font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">🏆 Destaques da Semana</h2>
+            </div>
+            <div class="podium" id="podiumSemanalContainer">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <div class="glass-panel section-card">
+            <div class="card-header">
+              <h2>Top Analistas (Metas Semanais)</h2>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-ghost-sm" id="exportPdfBtnSemanal" title="Exportar para PDF" style="padding: 4px 10px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                  Exportar
+                </button>
+                <span style="color:#fbbf24">🏆</span>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="data-table styled-table ranking-table" id="tabelaMetasSemanal">
+                <thead>
+                  <tr>
+                    <th>Analista</th>
+                    <th>Meta Semana</th>
+                    <th>Prev. Semanal</th>
+                    <th>Horas</th>
+                    <th>Saldo</th>
+                    <th>Pts</th>
+                    <th>(%)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaMetasSemanalBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA CONFIGURAÇÕES -->
+      <section class="tab-pane" id="tab-settings">
+        <div class="glass-panel section-card">
+          <div class="card-header">
+            <h2>Personalização</h2>
+          </div>
+          <div style="padding: 20px;">
+            <label style="display: block; margin-bottom: 15px; font-weight: 600; color: var(--text-muted);">Tema do Sistema</label>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;" id="themeSelectorContainer">
+              
+              <!-- Tema Padrão -->
+              <div class="theme-option active" data-theme="default" style="cursor: pointer; border: 2px solid var(--primary); border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #0b1120; transition: 0.2s;">
+                <div style="height: 40px; background: #141c2f; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center;">
+                  <span style="color: #38bdf8;">✦</span>
+                </div>
+                <span style="font-size: 13px; color: #f8fafc; font-weight: 500;">Padrão</span>
+              </div>
+
+              <!-- Tema Dracula -->
+              <div class="theme-option" data-theme="dracula" style="cursor: pointer; border: 2px solid transparent; border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #282a36; transition: 0.2s;">
+                <div style="height: 40px; background: #44475a; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center;">
+                  <span style="color: #ff79c6;">✦</span>
+                </div>
+                <span style="font-size: 13px; color: #f8f8f2; font-weight: 500;">Drácula</span>
+              </div>
+
+              <!-- Tema Light -->
+              <div class="theme-option" data-theme="light" style="cursor: pointer; border: 2px solid transparent; border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #f1f5f9; transition: 0.2s;">
+                <div style="height: 40px; background: #ffffff; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #cbd5e1;">
+                  <span style="color: #0ea5e9;">✦</span>
+                </div>
+                <span style="font-size: 13px; color: #0f172a; font-weight: 500;">Claro</span>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel section-card" style="margin-top: 20px;">
+          <div class="card-header">
+            <h2>Personalizar Perfil</h2>
+          </div>
+          <div style="padding: 20px;">
+            <label style="display: block; margin-bottom: 15px; font-weight: 600; color: var(--text-muted);">Sua Foto de Perfil (Avatar)</label>
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+              <div class="user-avatar" style="width: 72px; height: 72px;">
+                <img id="settingsAvatarPreview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felipe%20Wustemberg&backgroundColor=b6e3f4" alt="Avatar Preview" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn-ghost-sm avatar-preset-btn" data-seed="Felipe%20Wustemberg" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-dark);">Padrão (Felipe)</button>
+                  <button class="btn-ghost-sm avatar-preset-btn" data-seed="Heloisa%20Yamanaka" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-dark);">Padrão (Heloisa)</button>
+                  <button class="btn-ghost-sm avatar-preset-btn" data-seed="Anderson%20Almeida" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-dark);">Padrão (Anderson)</button>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <input type="file" id="customAvatarInput" accept="image/png, image/jpeg, image/gif" style="display: none;">
+                  <button class="btn-ghost-sm" id="btnUploadAvatar" style="cursor: pointer; background: var(--primary); color: #000; border: none; font-weight: 600;">📁 Carregar Foto Própria...</button>
+                  <button class="btn-ghost-sm" id="btnResetAvatar" style="cursor: pointer; color: var(--danger); border: 1px solid var(--danger);">Resetar</button>
+                </div>
+              </div>
+            </div>
+            <p style="margin-top: 15px; font-size: 13px; color: var(--text-dim);">Esta foto aparecerá ali no canto superior direito (no seu perfil) e também nos pódios de ranking!</p>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Toasts -->
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
