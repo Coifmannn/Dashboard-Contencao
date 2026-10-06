@@ -47,12 +47,12 @@ const firebaseConfig = {
   measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
-let app, db;
+let firebaseApp, db;
 
 try {
   // Inicializa o app Firebase com try/catch para evitar falhar caso não tenha as credenciais
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
+  firebaseApp = initializeApp(firebaseConfig);
+  db = getFirestore(firebaseApp);
 } catch (error) {
   console.warn('[Firebase] Não foi possível inicializar. Verifique suas credenciais em firebase.js');
 }
