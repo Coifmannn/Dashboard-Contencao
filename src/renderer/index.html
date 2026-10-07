@@ -58,15 +58,7 @@
             <div class="select-arrow">▼</div>
           </div>
         </div>
-        <div class="filter-group-col">
-          <label>Analista</label>
-          <div class="custom-select-container">
-            <select id="filterAnalyst" class="custom-select">
-              <option value="todos">Todos os Analistas</option>
-            </select>
-            <div class="select-arrow">▼</div>
-          </div>
-        </div>
+
 
         <button class="btn-sync-sidebar" id="syncNowBtn">
           <svg class="sync-icon" id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -295,6 +287,9 @@
               </div>
 
               <div class="filter-group">
+                <select id="filterAnalyst" class="filter-select">
+                  <option value="todos">Todos os Analistas</option>
+                </select>
                 <select id="filterCategory" class="filter-select">
                   <option value="todos">Todas as Categorias</option>
                   <option value="concluidas">Concluídas</option>

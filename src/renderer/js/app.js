@@ -830,7 +830,7 @@ function populateAnalystFilter(analysts) {
   
   const optSem = document.createElement('option');
   optSem.value = 'sem_analista';
-  optSem.textContent = 'Sem Analista (Não Alocado)';
+  optSem.textContent = 'Filas / Não Alocado';
   filterAnalyst.appendChild(optSem);
 }
 

@@ -301,7 +301,12 @@ function registerIpcHandlers() {
 
     if (filters.analista && filters.analista !== 'todos') {
       if (filters.analista === 'sem_analista') {
-        list = list.filter(t => !t.analista || t.analista.trim() === '' || t.analista === 'Sem Analista');
+        list = list.filter(t => {
+          if (!t.analista || t.analista.trim() === '' || t.analista === 'Sem Analista') return true;
+          const low = t.analista.toLowerCase();
+          if (low.includes('conten') || low.includes('fila') || low.includes('suporte') || low.includes('cs -')) return true;
+          return false;
+        });
       } else {
         list = list.filter(t => t.analista === filters.analista);
       }
