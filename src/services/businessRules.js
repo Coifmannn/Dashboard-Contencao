@@ -58,7 +58,10 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
   }
 
   if (isNaN(h) || h === 0) {
-    if (sStr.includes('criacao do blog') || tpStr.includes('blog') || sStr.includes('blog')) {
+    const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
+    if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) {
+      h = 2.0; p = 2.0;
+    } else if (sStr.includes('criacao do blog') || tpStr.includes('blog') || sStr.includes('blog')) {
       h = 5.0; p = 5.0;
     } else if (sStr.includes('criacao token') || sStr.includes('alterar token') || tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
       h = 2.0; p = 2.0;
@@ -94,7 +97,9 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
 function classifyPriorityCategory(subject, rawTipo) {
   const sStr = cleanString(subject);
   const tpStr = cleanString(rawTipo);
+  const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
 
+  if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
   if (tpStr.includes('blog') || sStr.includes('blog')) return 'BLOG';
   if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) return 'API/TOKEN';
   if (tpStr.includes('urg') || sStr.includes('urg')) return 'URGENTE';
@@ -580,7 +585,7 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
 
 
   // 2. Tabela 2: Tarefas por Nível de Prioridade (Volume de Entregas)
-  const prioridadesList = ['BLOG', 'API/TOKEN', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO'];
+  const prioridadesList = ['BLOG', 'API/TOKEN', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'];
   const tabelaPrioridades = ACTIVE_ANALYSTS.map(analista => {
     const analistaTasks = monthTasks.filter(t => t.analista === analista.name);
     const counts = {};

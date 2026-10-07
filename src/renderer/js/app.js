@@ -724,6 +724,7 @@ function renderTabelaPrioridades(data) {
       <td class="num-cell">${r['BAIXA']}</td>
       <td class="num-cell">${r['BACKUP']}</td>
       <td class="num-cell">${r['T. DE BANCO']}</td>
+      <td class="num-cell">${r['CHATBOT']}</td>
       <td class="num-cell font-bold" style="color: #38bdf8;">${r.total}</td>
     `;
     tabelaPrioridadesBody.appendChild(tr);
@@ -741,6 +742,7 @@ function renderTabelaPrioridades(data) {
       <td class="num-cell">${tot['BAIXA']}</td>
       <td class="num-cell">${tot['BACKUP']}</td>
       <td class="num-cell">${tot['T. DE BANCO']}</td>
+      <td class="num-cell">${tot['CHATBOT']}</td>
       <td class="num-cell font-bold" style="color: #38bdf8;">${tot.total}</td>
     </tr>
   `;
