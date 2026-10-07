@@ -35,6 +35,8 @@ const kpiFilaValue = document.getElementById('kpiFilaValue');
 // Elementos de Tabelas da Dashboard
 const tabelaMetasBody = document.getElementById('tabelaMetasBody');
 const tabelaMetasFoot = document.getElementById('tabelaMetasFoot');
+const tabelaMetasHomeBody = document.getElementById('tabelaMetasHomeBody');
+const tabelaMetasHomeFoot = document.getElementById('tabelaMetasHomeFoot');
 const tabelaPrioridadesBody = document.getElementById('tabelaPrioridadesBody');
 const tabelaPrioridadesFoot = document.getElementById('tabelaPrioridadesFoot');
 const tabelaHorasSemanaisBody = document.getElementById('tabelaHorasSemanaisBody');
@@ -614,6 +616,7 @@ function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'ho
 
 function renderTabelaMetas(data, metric = 'horas') {
   tabelaMetasBody.innerHTML = '';
+  if (tabelaMetasHomeBody) tabelaMetasHomeBody.innerHTML = '';
   
   let sorted = [...data.rows];
   if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
@@ -645,6 +648,7 @@ function renderTabelaMetas(data, metric = 'horas') {
       <td class="num-cell" style="color: #f472b6;">${r.capacidadeFilaHoras.toFixed(1)}h</td>
     `;
     tabelaMetasBody.appendChild(tr);
+    if (tabelaMetasHomeBody) tabelaMetasHomeBody.appendChild(tr.cloneNode(true));
   });
 
   const tot = data.total;
@@ -667,6 +671,7 @@ function renderTabelaMetas(data, metric = 'horas') {
       <td class="num-cell" style="color: #f472b6;">${tot.capacidadeFilaHoras.toFixed(1)}h</td>
     </tr>
   `;
+  if (tabelaMetasHomeFoot) tabelaMetasHomeFoot.innerHTML = tabelaMetasFoot.innerHTML;
 }
 
 function renderTabelaMetasSemanal(data, metric = 'horas') {
