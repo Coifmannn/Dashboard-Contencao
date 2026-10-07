@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('api', {
   // Sistema
   openExternal: (url) => ipcRenderer.invoke('system:open-external', url),
   exportPdf: (title) => ipcRenderer.invoke('system:export-pdf', title),
+  clearCache: () => ipcRenderer.invoke('system:clear-cache'),
+  getSettings: () => ipcRenderer.invoke('system:get-settings'),
+  saveSettings: (settings) => ipcRenderer.invoke('system:save-settings', settings),
 
   // Ouvintes de Eventos em Tempo Real
   onSyncStatus: (callback) => {

@@ -138,11 +138,20 @@ function setupEventListeners() {
   }
 
   const themeOptions = document.querySelectorAll('.theme-option');
-  const currentTheme = localStorage.getItem('dashTheme') || 'default';
+  let currentTheme = localStorage.getItem('dashTheme') || 'default';
+  
+  window.api.getSettings().then(settings => {
+    if (settings && settings.theme) {
+      currentTheme = settings.theme;
+      applyTheme(currentTheme);
+    }
+  });
   
   const applyTheme = (themeName) => {
     document.documentElement.setAttribute('data-theme', themeName);
     localStorage.setItem('dashTheme', themeName);
+    window.api.saveSettings({ theme: themeName }).catch(err => console.error(err));
+
     
     themeOptions.forEach(opt => {
       if (opt.dataset.theme === themeName) {
@@ -818,6 +827,11 @@ function populateAnalystFilter(analysts) {
     opt.textContent = a.analista;
     filterAnalyst.appendChild(opt);
   });
+  
+  const optSem = document.createElement('option');
+  optSem.value = 'sem_analista';
+  optSem.textContent = 'Sem Analista (Não Alocado)';
+  filterAnalyst.appendChild(optSem);
 }
 
 // Carrega lista detalhada de tarefas

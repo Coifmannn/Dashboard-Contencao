@@ -300,7 +300,11 @@ function registerIpcHandlers() {
     }
 
     if (filters.analista && filters.analista !== 'todos') {
-      list = list.filter(t => t.analista === filters.analista);
+      if (filters.analista === 'sem_analista') {
+        list = list.filter(t => !t.analista || t.analista.trim() === '' || t.analista === 'Sem Analista');
+      } else {
+        list = list.filter(t => t.analista === filters.analista);
+      }
     }
 
     if (filters.prazo && filters.prazo !== 'todos') {
@@ -428,6 +432,58 @@ function registerIpcHandlers() {
       return { success: true, filePath };
     } catch (err) {
       console.error('[Main] Erro ao exportar PDF:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Limpar Cache
+  ipcMain.handle('system:clear-cache', async () => {
+    try {
+      const primary = getCacheFilePath();
+      const fallback = path.join(LOCAL_DATA_DIR, 'cached_dashboard.json');
+      if (fs.existsSync(primary)) fs.unlinkSync(primary);
+      if (fs.existsSync(fallback)) fs.unlinkSync(fallback);
+      
+      inMemoryState.lastSync = null;
+      inMemoryState.allTasks = [];
+      inMemoryState.selectedMonth = null;
+      
+      return { success: true };
+    } catch (err) {
+      console.error('[Main] Erro ao limpar cache:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Configurações do usuário
+  ipcMain.handle('system:get-settings', () => {
+    try {
+      ensureDataDir();
+      const file = path.join(getDataDir(), 'user_settings.json');
+      const fallback = path.join(LOCAL_DATA_DIR, 'user_settings.json');
+      
+      if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+      if (fs.existsSync(fallback)) return JSON.parse(fs.readFileSync(fallback, 'utf-8'));
+    } catch (err) {}
+    return {};
+  });
+
+  ipcMain.handle('system:save-settings', (event, settings) => {
+    try {
+      ensureDataDir();
+      const file = path.join(getDataDir(), 'user_settings.json');
+      let current = {};
+      if (fs.existsSync(file)) {
+        current = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      }
+      const updated = { ...current, ...settings };
+      fs.writeFileSync(file, JSON.stringify(updated, null, 2));
+      
+      if (fs.existsSync(LOCAL_DATA_DIR)) {
+        fs.writeFileSync(path.join(LOCAL_DATA_DIR, 'user_settings.json'), JSON.stringify(updated, null, 2));
+      }
+      return { success: true };
+    } catch (err) {
       return { success: false, error: err.message };
     }
   });

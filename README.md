@@ -6,44 +6,13 @@ Substitui completamente o fluxo legado (`Extensão Chrome -> Google Apps Script 
 
 ---
 
-## 🚀 Como Instalar e Iniciar a Aplicação
+## 🚀 Como Iniciar a Aplicação
 
-### 1. Clonando o Repositório e Configurando
-Se você acabou de clonar o projeto do GitHub em um computador novo, siga estes passos para configurar:
+Caso seja a primeira com a aplicação, rode esta sequência:
 
-1. **Baixe as dependências**: Abra o terminal na pasta do projeto e rode o comando que vai ler o arquivo `package.json` e baixar todo o motor do app (incluindo o Electron):
-   ```bash
-   npm install
-   ```
-   *(Caso o instalador do Electron falhe por conta de bloqueios de rede corporativa, use o comando de troubleshooting abaixo)*
+npm install (somente no primeiro uso)
 
-2. **Copie o arquivo `.env`**: O arquivo de configuração secreta não sobe para o GitHub por segurança. Peça o arquivo `.env` para a sua equipe e cole-o na raiz do projeto. Sem ele, as fotos de perfil e o histórico na nuvem não vão funcionar!
-
-### 2. Rodando o App (Modo Desenvolvimento)
-Após instalar e colocar o `.env`, basta dar um duplo clique no arquivo `Iniciar Painel.cmd` ou rodar no terminal:
-```bash
-npm start
-```
-
-### 3. Executável Compilado (.exe nativo)
-Se você já compilou o aplicativo para a produção, basta rodar diretamente o `.exe`:
-- [Abrir Executavel.cmd](file:///c:/Users/gustavo.wustemberg/Documents/painel_contencao/Abrir%20Executavel.cmd) ou
-- `dist/win-unpacked/Painel de Contencao.exe`
-
----
-
-## 🛠 Troubleshooting de Instalação (Firewall / Antivírus)
-Se ao rodar `npm start` você receber um erro como: *`Electron failed to install correctly`*, significa que o firewall da sua rede bloqueou o download do motor do Electron no meio do `npm install`.
-Para burlar isso e forçar o download via um servidor espelho (Mirror), cole todo este bloco no seu **Git Bash** e aperte Enter:
-
-```bash
-export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
-export ELECTRON_SKIP_BINARY_DOWNLOAD=0
-rm -rf ~/.cache/electron
-rm -rf node_modules/electron
-npm install electron
-npm start
-```
+npm start (para os demais usos)
 
 ---
 
