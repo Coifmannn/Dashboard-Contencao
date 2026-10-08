@@ -61,13 +61,21 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
     const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
     if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) {
       h = 2.0; p = 2.0;
-    } else if (sStr.includes('criacao do blog') || tpStr.includes('blog') || sStr.includes('blog')) {
+    } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog')) {
       h = 5.0; p = 5.0;
-    } else if (sStr.includes('criacao token') || sStr.includes('alterar token') || tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
+    } else if (sStr.includes('erro blog')) {
+      h = 2.0; p = 2.0;
+    } else if (tpStr.includes('blog') || sStr.includes('blog')) {
+      h = 5.0; p = 5.0;
+    } else if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('alterar token')) {
+      h = 1.0; p = 1.0;
+    } else if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('imagem quebrada') || tpStr.includes('imagem') || sStr.includes('quebrada')) {
       h = 1.0; p = 1.0;
-    } else if (sStr.includes('erro no banco') || sStr.includes('erro sig') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('t.')) {
+    } else if (sStr.includes('erro sig')) {
+      h = 2.0; p = 2.0;
+    } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('t.')) {
       h = 1.0; p = 1.0;
     } else if (tpStr.includes('baixa') || tpStr.includes('facil') || sStr.includes('baixa') || sStr.includes('facil')) {
       h = 4.0; p = 4.0;
