@@ -407,6 +407,19 @@ function parseReportData(rawReport, category = 'concluidas') {
         dataVencimento = extractDateFromCells(cells);
       }
 
+      function formatDate(isoStr) {
+        if (!isoStr || isoStr === '-') return isoStr;
+        const s = String(isoStr).trim();
+        const m = s.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})/);
+        if (m) {
+          return `${m[3].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[1]}`;
+        }
+        return s;
+      }
+
+      dataVencimento = formatDate(dataVencimento);
+      dataEntrega = formatDate(dataEntrega);
+
       let taskId = '';
       if (cols.task_id !== -1 && cols.task_id < cells.length) {
         taskId = cells[cols.task_id].value;
@@ -557,6 +570,17 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
   const currentWeekStr = getWeekOfMonth(todayDateStr);
   const weekTasks = monthTasks.filter(t => t.semana === currentWeekStr);
   
+  console.log("=== DEBUG DASHBOARD ===");
+  console.log("Mês Selecionado:", activeMonth);
+  console.log("Semana Atual do Sistema:", currentWeekStr);
+  console.log("Data de Hoje:", todayDateStr);
+  console.log("Total Tarefas do Mês:", monthTasks.length);
+  monthTasks.forEach(t => {
+    if (t.dataEntrega) {
+      console.log(`- Analista: ${t.analista} | Semana Calc: ${t.semana} | Entrega: ${t.dataEntrega}`);
+    }
+  });
+  
   // Vamos inferir quantos dias úteis já se passaram nesta semana
   const dayOfWeek = now.getDay(); // 0 = Dom, 1 = Seg, 2 = Ter, 3 = Qua, 4 = Qui, 5 = Sex, 6 = Sáb
   let currentWeekWorkdays = dayOfWeek; 
@@ -597,6 +621,114 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
     };
   });
 
+  const semanasList = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+  const tabelaMetasSemanalPorSemana = {};
+  for (const sem of semanasList) {
+    const semTasks = monthTasks.filter(t => t.semana === sem);
+    tabelaMetasSemanalPorSemana[sem] = ACTIVE_ANALYSTS.map(analista => {
+      let cargaDiaria = analista.cargaPadrao;
+      let metaSemanalCompleta = cargaDiaria * 5;
+      let previsaoParcialSemanal = cargaDiaria * 5; 
+      if (sem === currentWeekStr) {
+        previsaoParcialSemanal = cargaDiaria * currentWeekWorkdays;
+      }
+      if (analista.name === 'Anderson Almeida' && isSetembro2026) {
+        cargaDiaria = totalWorkdays > 0 ? (48.0 / totalWorkdays) : 2.3;
+        metaSemanalCompleta = cargaDiaria * 5;
+        previsaoParcialSemanal = sem === currentWeekStr ? cargaDiaria * currentWeekWorkdays : cargaDiaria * 5;
+      }
+      const analistaWeekTasks = semTasks.filter(t => t.analista === analista.name);
+      const horasTrabalhadas = Number(analistaWeekTasks.reduce((acc, t) => acc + (t.horas || 0), 0).toFixed(1));
+      const pontosTotais = Number(analistaWeekTasks.reduce((acc, t) => acc + (t.pontos || 0), 0).toFixed(1));
+      const saldo = Number((horasTrabalhadas - previsaoParcialSemanal).toFixed(1));
+      const percentualAtingido = metaSemanalCompleta > 0 ? Number(((horasTrabalhadas / metaSemanalCompleta) * 100).toFixed(1)) : 0;
+      const statusMeta = saldo >= 0 ? 'Acima da meta' : 'Abaixo da meta';
+      return {
+        analista: analista.name,
+        metaSemanalCompleta: Number(metaSemanalCompleta.toFixed(1)),
+        previsaoParcialSemanal: Number(previsaoParcialSemanal.toFixed(1)),
+        horasTrabalhadas,
+        saldo,
+        pontosTotais,
+        percentualAtingido,
+        statusMeta,
+        totalTarefasConcluidas: analistaWeekTasks.length
+      };
+    });
+  }
+
+
+  // 1.6 Ranking Diário
+  const todayOnlyDateStr = todayDateStr.split('T')[0]; 
+  const dStr = todayOnlyDateStr.split('-');
+  const ddMMyyyy = `${dStr[2]}/${dStr[1]}/${dStr[0]}`;
+
+  const dayTasks = monthTasks.filter(t => {
+    if (!t.dataEntrega) return false;
+    const str = String(t.dataEntrega);
+    return str.includes(todayOnlyDateStr) || str.includes(ddMMyyyy);
+  });
+
+  const tabelaMetasDiaria = ACTIVE_ANALYSTS.map(analista => {
+    let cargaDiaria = analista.cargaPadrao;
+    let metaDiaria = cargaDiaria;
+    
+    if (analista.name === 'Anderson Almeida' && isSetembro2026) {
+      cargaDiaria = totalWorkdays > 0 ? (48.0 / totalWorkdays) : 2.3;
+      metaDiaria = cargaDiaria;
+    }
+
+    const analistaDayTasks = dayTasks.filter(t => t.analista === analista.name);
+    const horasTrabalhadas = Number(analistaDayTasks.reduce((acc, t) => acc + (t.horas || 0), 0).toFixed(1));
+    const pontosTotais = Number(analistaDayTasks.reduce((acc, t) => acc + (t.pontos || 0), 0).toFixed(1));
+    const saldo = Number((horasTrabalhadas - metaDiaria).toFixed(1));
+    const percentualAtingido = metaDiaria > 0 ? Number(((horasTrabalhadas / metaDiaria) * 100).toFixed(1)) : 0;
+    const statusMeta = saldo >= 0 ? 'Acima da meta' : 'Abaixo da meta';
+
+    return {
+      analista: analista.name,
+      metaDiaria: Number(metaDiaria.toFixed(1)),
+      horasTrabalhadas,
+      saldo,
+      pontosTotais,
+      percentualAtingido,
+      statusMeta,
+      totalTarefasConcluidas: analistaDayTasks.length
+    };
+  });
+
+  const uniqueDays = [...new Set(monthTasks.filter(t => t.dataEntrega && t.dataEntrega !== '-').map(t => {
+    return String(t.dataEntrega).includes(' ') ? String(t.dataEntrega).split(' ')[0] : String(t.dataEntrega);
+  }))];
+  
+  const tabelaMetasDiariaPorDia = {};
+  for (const dayStr of uniqueDays) {
+    const tDayTasks = monthTasks.filter(t => String(t.dataEntrega).includes(dayStr));
+    tabelaMetasDiariaPorDia[dayStr] = ACTIVE_ANALYSTS.map(analista => {
+      let cargaDiaria = analista.cargaPadrao;
+      let metaDiaria = cargaDiaria;
+      if (analista.name === 'Anderson Almeida' && isSetembro2026) {
+        cargaDiaria = totalWorkdays > 0 ? (48.0 / totalWorkdays) : 2.3;
+        metaDiaria = cargaDiaria;
+      }
+      const analistaDayTasks = tDayTasks.filter(t => t.analista === analista.name);
+      const horasTrabalhadas = Number(analistaDayTasks.reduce((acc, t) => acc + (t.horas || 0), 0).toFixed(1));
+      const pontosTotais = Number(analistaDayTasks.reduce((acc, t) => acc + (t.pontos || 0), 0).toFixed(1));
+      const saldo = Number((horasTrabalhadas - metaDiaria).toFixed(1));
+      const percentualAtingido = metaDiaria > 0 ? Number(((horasTrabalhadas / metaDiaria) * 100).toFixed(1)) : 0;
+      const statusMeta = saldo >= 0 ? 'Acima da meta' : 'Abaixo da meta';
+      return {
+        analista: analista.name,
+        metaDiaria: Number(metaDiaria.toFixed(1)),
+        horasTrabalhadas,
+        saldo,
+        pontosTotais,
+        percentualAtingido,
+        statusMeta,
+        totalTarefasConcluidas: analistaDayTasks.length
+      };
+    });
+  }
 
   // 2. Tabela 2: Tarefas por Nível de Prioridade (Volume de Entregas)
   const prioridadesList = ['BLOG', 'API/TOKEN', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'];
@@ -628,7 +760,6 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
   });
 
   // 3. Tabela 3: Horas Semanais por Analista
-  const semanasList = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
   const tabelaHorasSemanais = ACTIVE_ANALYSTS.map(analista => {
     const analistaTasks = monthTasks.filter(t => t.analista === analista.name);
     const semanas = {};
@@ -708,7 +839,13 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
     },
     tabelaMetasSemanal: {
       currentWeek: currentWeekStr,
-      rows: tabelaMetasSemanal
+      rows: tabelaMetasSemanal,
+      porSemana: tabelaMetasSemanalPorSemana
+    },
+    tabelaMetasDiaria: {
+      currentDay: ddMMyyyy,
+      rows: tabelaMetasDiaria,
+      porDia: tabelaMetasDiariaPorDia
     },
     tabelaPrioridades: {
       prioridadesList,
@@ -730,7 +867,9 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalEsperadoTarefas: Math.round(totalMetaMensal / 2)
     },
     recentTasks: monthTasks.slice(0, 50),
-    filaTasksList: filaTasks.slice(0, 50)
+    filaTasksList: filaTasks.slice(0, 50),
+    allMonthTasks: monthTasks,
+    semanasList: semanasList
   };
 }
 

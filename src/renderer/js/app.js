@@ -132,10 +132,57 @@ function setupEventListeners() {
     rankingMetricSelect.addEventListener('change', () => {
       if (currentMetrics) {
         renderRankingPodium(currentMetrics.tabelaMetas, 'podiumContainer', rankingMetricSelect.value);
-        renderRankingPodium(currentMetrics.tabelaMetasSemanal, 'podiumSemanalContainer', rankingMetricSelect.value);
+        
+        const weekFilter = document.getElementById('filterSemanalWeek')?.value || currentMetrics.tabelaMetasSemanal.currentWeek;
+        const weekRows = currentMetrics.tabelaMetasSemanal.porSemana[weekFilter] || currentMetrics.tabelaMetasSemanal.rows;
+        renderRankingPodium({ rows: weekRows }, 'podiumSemanalContainer', rankingMetricSelect.value);
+        
+        const dayFilterInput = document.getElementById('filterDiarioDate')?.value;
+        let dayRows = currentMetrics.tabelaMetasDiaria.rows;
+        if (dayFilterInput) {
+          const dParts = dayFilterInput.split('-');
+          const dayStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+          if (currentMetrics.tabelaMetasDiaria.porDia[dayStr]) {
+            dayRows = currentMetrics.tabelaMetasDiaria.porDia[dayStr];
+          }
+        }
+        renderRankingPodium({ rows: dayRows }, 'podiumDiarioContainer', rankingMetricSelect.value);
+        
         renderTabelaMetas(currentMetrics.tabelaMetas, rankingMetricSelect.value);
-        renderTabelaMetasSemanal(currentMetrics.tabelaMetasSemanal, rankingMetricSelect.value);
+        renderTabelaMetasSemanal({ rows: weekRows }, rankingMetricSelect.value);
+        renderTabelaMetasDiaria({ rows: dayRows }, rankingMetricSelect.value);
       }
+    });
+  }
+
+  const filterSemanalWeek = document.getElementById('filterSemanalWeek');
+  if (filterSemanalWeek) {
+    filterSemanalWeek.addEventListener('change', () => {
+      if (!currentMetrics) return;
+      const week = filterSemanalWeek.value;
+      const weekRows = currentMetrics.tabelaMetasSemanal.porSemana[week] || currentMetrics.tabelaMetasSemanal.rows;
+      const metric = rankingMetricSelect?.value || 'horas';
+      renderTabelaMetasSemanal({ rows: weekRows }, metric);
+      renderRankingPodium({ rows: weekRows }, 'podiumSemanalContainer', metric);
+    });
+  }
+
+  const filterDiarioDate = document.getElementById('filterDiarioDate');
+  if (filterDiarioDate) {
+    filterDiarioDate.addEventListener('change', () => {
+      if (!currentMetrics) return;
+      const dateVal = filterDiarioDate.value; // YYYY-MM-DD
+      if (!dateVal) return;
+      const parts = dateVal.split('-');
+      const str = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      
+      let dayRows = currentMetrics.tabelaMetasDiaria.porDia[str];
+      if (!dayRows) {
+        dayRows = currentMetrics.tabelaMetasDiaria.rows.map(r => ({ ...r, horasTrabalhadas: 0, saldo: -r.metaDiaria, pontosTotais: 0, percentualAtingido: 0, statusMeta: 'Abaixo da meta', totalTarefasConcluidas: 0 }));
+      }
+      const metric = rankingMetricSelect?.value || 'horas';
+      renderTabelaMetasDiaria({ rows: dayRows }, metric);
+      renderRankingPodium({ rows: dayRows }, 'podiumDiarioContainer', metric);
     });
   }
 
@@ -435,6 +482,15 @@ async function loadDashboard(selectedMonth = null) {
     currentMetrics = res.metrics;
     nextSyncTimestamp = res.nextSync;
 
+    console.log("=== DEBUG TAREFAS (FRONTEND) ===");
+    if (currentMetrics && currentMetrics.recentTasks) {
+      currentMetrics.recentTasks.forEach(t => {
+        console.log(`- Tarefa: ${t.taskId} | SemanaCalc: ${t.semana} | Entrega: ${t.dataEntrega}`);
+      });
+      console.log("=== DEBUG WEEKLY ROWS ===");
+      console.log(currentMetrics.tabelaMetasSemanal.rows);
+    }
+
     updateMonthSelector(currentMetrics.availableMonths, currentMetrics.activeMonth);
     renderDashboard(currentMetrics);
 
@@ -505,8 +561,31 @@ function renderDashboard(metrics) {
   renderRankingPodium(metrics.tabelaMetas, 'podiumContainer');
 
   if (metrics.tabelaMetasSemanal) {
-    renderTabelaMetasSemanal(metrics.tabelaMetasSemanal);
-    renderRankingPodium(metrics.tabelaMetasSemanal, 'podiumSemanalContainer');
+    const weekSelect = document.getElementById('filterSemanalWeek');
+    if (weekSelect && metrics.semanasList) {
+      weekSelect.innerHTML = '';
+      metrics.semanasList.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s + (s === metrics.tabelaMetasSemanal.currentWeek ? ' (Atual)' : '');
+        weekSelect.appendChild(opt);
+      });
+      weekSelect.value = metrics.tabelaMetasSemanal.currentWeek;
+    }
+    const currentWeekRows = metrics.tabelaMetasSemanal.porSemana[metrics.tabelaMetasSemanal.currentWeek] || metrics.tabelaMetasSemanal.rows;
+    renderTabelaMetasSemanal({ rows: currentWeekRows });
+    renderRankingPodium({ rows: currentWeekRows }, 'podiumSemanalContainer');
+  }
+
+  if (metrics.tabelaMetasDiaria) {
+    const dateInput = document.getElementById('filterDiarioDate');
+    if (dateInput) {
+      // currentDate comes as DD/MM/YYYY, format to YYYY-MM-DD
+      const dParts = metrics.tabelaMetasDiaria.currentDay.split('/');
+      dateInput.value = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
+    }
+    renderTabelaMetasDiaria(metrics.tabelaMetasDiaria);
+    renderRankingPodium(metrics.tabelaMetasDiaria, 'podiumDiarioContainer');
   }
 
   // 4. Tabela 2: Volume por Prioridade
@@ -691,6 +770,41 @@ function renderTabelaMetasSemanal(data, metric = 'horas') {
       <td class="analyst-name">${r.analista}</td>
       <td class="num-cell">${r.metaSemanalCompleta.toFixed(1)}h</td>
       <td class="num-cell">${r.previsaoParcialSemanal.toFixed(1)}h</td>
+      <td class="num-cell font-bold" style="color: #60a5fa;">${r.horasTrabalhadas.toFixed(1)}h</td>
+      <td class="num-cell font-bold" style="color: ${isAcima ? '#34d399' : '#f87171'};">
+        ${isAcima ? '+' : ''}${r.saldo.toFixed(1)}h
+      </td>
+      <td class="num-cell font-bold">${r.pontosTotais.toFixed(1)}</td>
+      <td class="num-cell">
+        <div>${r.percentualAtingido}%</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" style="width: ${Math.min(r.percentualAtingido, 100)}%; background: ${isAcima ? '#10b981' : '#f59e0b'};"></div>
+        </div>
+      </td>
+      <td class="num-cell">
+        <span class="status-pill ${isAcima ? 'acima' : 'abaixo'}">${r.statusMeta}</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderTabelaMetasDiaria(data, metric = 'horas') {
+  const tbody = document.getElementById('tabelaMetasDiariaBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let sorted = [...data.rows];
+  if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
+  else if (metric === 'tarefas') sorted.sort((a, b) => (b.totalTarefasConcluidas || 0) - (a.totalTarefasConcluidas || 0));
+  else sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
+
+  sorted.forEach(r => {
+    const tr = document.createElement('tr');
+    const isAcima = r.saldo >= 0;
+    tr.innerHTML = `
+      <td class="analyst-name">${r.analista}</td>
+      <td class="num-cell">${r.metaDiaria.toFixed(1)}h</td>
       <td class="num-cell font-bold" style="color: #60a5fa;">${r.horasTrabalhadas.toFixed(1)}h</td>
       <td class="num-cell font-bold" style="color: ${isAcima ? '#34d399' : '#f87171'};">
         ${isAcima ? '+' : ''}${r.saldo.toFixed(1)}h
