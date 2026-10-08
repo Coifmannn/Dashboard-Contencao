@@ -867,6 +867,52 @@ body {
 }
 
 /* ==========================================================================
+   MODAL PODIUM
+   ========================================================================== */
+.podium-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(11, 17, 32, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.podium-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 1200px;
+  background: transparent;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.btn-close-modal {
+  position: absolute;
+  top: 0;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 40px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-close-modal:hover {
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* ==========================================================================
    TEAM PROGRESS LIST
    ========================================================================== */
 .team-progress-list {
@@ -1023,6 +1069,21 @@ body {
   animation-delay: 0.6s;
 }
 
+.podium-item.fourth {
+  height: 170px;
+  animation-delay: 0.8s;
+}
+
+.podium-item.fifth {
+  height: 140px;
+  animation-delay: 1.0s;
+}
+
+.podium-item.sixth {
+  height: 110px;
+  animation-delay: 1.2s;
+}
+
 .podium-avatar {
   width: 80px;
   height: 80px;
@@ -1098,6 +1159,26 @@ body {
 
 .podium-item.third .podium-step {
   background: linear-gradient(180deg, #d97706 0%, #78350f 100%);
+}
+
+.podium-item.fourth .podium-avatar,
+.podium-item.fifth .podium-avatar,
+.podium-item.sixth .podium-avatar {
+  width: 60px;
+  height: 60px;
+  border-color: #64748b;
+}
+
+.podium-item.fourth .podium-step {
+  background: linear-gradient(180deg, #475569 0%, #1e293b 100%);
+}
+
+.podium-item.fifth .podium-step {
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+}
+
+.podium-item.sixth .podium-step {
+  background: linear-gradient(180deg, #1e293b 0%, #020617 100%);
 }
 
 .medal-icon {

@@ -416,6 +416,56 @@ function setupEventListeners() {
   [taskSearchInput, filterCategory, filterAnalyst, filterPriority, filterPrazo].forEach(el => {
     if (el) el.addEventListener('input', () => debounce(loadTasksList, 250)());
   });
+
+  // Modal expandir pódio
+  const podiumModal = document.getElementById('podiumModal');
+  const closePodiumModal = document.getElementById('closePodiumModal');
+  const podiumModalTitle = document.getElementById('podiumModalTitle');
+
+  if (closePodiumModal) {
+    closePodiumModal.addEventListener('click', () => {
+      podiumModal.style.display = 'none';
+    });
+  }
+
+  document.querySelectorAll('.btn-expand-podium').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.target;
+      const metric = document.getElementById('rankingMetricSelect')?.value || 'horas';
+      let dataToRender = null;
+      let title = '';
+      
+      if (!currentMetrics) return;
+
+      if (target === 'mensal') {
+        dataToRender = currentMetrics.tabelaMetas;
+        title = '🏆 Destaques do Mês (Expandido)';
+      } else if (target === 'semanal') {
+        const weekFilter = document.getElementById('filterSemanalWeek')?.value || currentMetrics.tabelaMetasSemanal.currentWeek;
+        const weekRows = currentMetrics.tabelaMetasSemanal.porSemana[weekFilter] || currentMetrics.tabelaMetasSemanal.rows;
+        dataToRender = { rows: weekRows };
+        title = '🏆 Destaques da Semana (Expandido)';
+      } else if (target === 'diario') {
+        const dayFilterInput = document.getElementById('filterDiarioDate')?.value;
+        let dayRows = currentMetrics.tabelaMetasDiaria.rows;
+        if (dayFilterInput) {
+          const dParts = dayFilterInput.split('-');
+          const dayStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+          if (currentMetrics.tabelaMetasDiaria.porDia[dayStr]) {
+            dayRows = currentMetrics.tabelaMetasDiaria.porDia[dayStr];
+          }
+        }
+        dataToRender = { rows: dayRows };
+        title = '🏆 Destaques do Dia (Expandido)';
+      }
+
+      if (dataToRender) {
+        podiumModalTitle.textContent = title;
+        podiumModal.style.display = 'flex';
+        renderRankingPodium(dataToRender, 'podiumModalContainer', metric, 6);
+      }
+    });
+  });
 }
 
 function mapFrontendAnalystName(rawName) {
@@ -642,7 +692,7 @@ function renderTeamProgress(data) {
   });
 }
 
-function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'horas') {
+function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'horas', maxPlaces = 3) {
   const podiumContainer = document.getElementById(containerId);
   if (!podiumContainer) return;
   
@@ -662,13 +712,25 @@ function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'ho
   
   if (sorted.length === 0) return;
   
-  const top3 = [
-    { rank: 2, data: sorted[1], class: 'second', medal: '🥈', step: '2º' },
-    { rank: 1, data: sorted[0], class: 'first', medal: '🏆', step: '1º' },
-    { rank: 3, data: sorted[2], class: 'third', medal: '🥉', step: '3º' }
-  ];
+  let topN = [];
+  if (maxPlaces === 3) {
+    topN = [
+      { rank: 2, data: sorted[1], class: 'second', medal: '🥈', step: '2º' },
+      { rank: 1, data: sorted[0], class: 'first', medal: '🏆', step: '1º' },
+      { rank: 3, data: sorted[2], class: 'third', medal: '🥉', step: '3º' }
+    ];
+  } else {
+    topN = [
+      { rank: 6, data: sorted[5], class: 'sixth', medal: '', step: '6º' },
+      { rank: 4, data: sorted[3], class: 'fourth', medal: '', step: '4º' },
+      { rank: 2, data: sorted[1], class: 'second', medal: '🥈', step: '2º' },
+      { rank: 1, data: sorted[0], class: 'first', medal: '🏆', step: '1º' },
+      { rank: 3, data: sorted[2], class: 'third', medal: '🥉', step: '3º' },
+      { rank: 5, data: sorted[4], class: 'fifth', medal: '', step: '5º' }
+    ];
+  }
   
-  top3.forEach(item => {
+  topN.forEach(item => {
     if (!item.data) return; 
     
     const avatarUrl = getAvatarForAnalyst(item.data.analista);
