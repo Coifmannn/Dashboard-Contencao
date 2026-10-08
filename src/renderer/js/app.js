@@ -869,19 +869,19 @@ function formatDateDDMMYY(dateStr) {
   let dateParts, year, month, day;
   if (dateStr.match(/^\d{4}[\-\/\.]\d{1,2}[\-\/\.]\d{1,2}/)) {
     dateParts = dateStr.split('T')[0].split(/[\-\/\.]/);
-    year = dateParts[0].slice(-2);
+    year = dateParts[0];
     month = dateParts[1].padStart(2, '0');
     day = dateParts[2].padStart(2, '0');
   } else if (dateStr.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/)) {
     dateParts = dateStr.split(/[\/\-]/);
     day = dateParts[0].padStart(2, '0');
     month = dateParts[1].padStart(2, '0');
-    year = dateParts[2].slice(-2);
+    year = dateParts[2];
   } else if (dateStr.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2}$/)) {
     dateParts = dateStr.split(/[\/\-]/);
     day = dateParts[0].padStart(2, '0');
     month = dateParts[1].padStart(2, '0');
-    year = dateParts[2];
+    year = '20' + dateParts[2];
   } else {
     return dateStr;
   }

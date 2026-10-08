@@ -115,28 +115,42 @@ function getWeekOfMonth(dateStr) {
   if (!dateStr || dateStr === '-') return 'Semana 1';
   const str = String(dateStr).trim();
 
+  let year = new Date().getFullYear();
+  let month = new Date().getMonth();
   let dayNumber = 1;
-  const isoMatch = str.match(/^\d{4}[\-\/\.]\d{1,2}[\-\/\.](\d{1,2})/);
+
+  const isoMatch = str.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})/);
   if (isoMatch) {
-    dayNumber = parseInt(isoMatch[1], 10);
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10) - 1;
+    dayNumber = parseInt(isoMatch[3], 10);
   } else {
     const slashMatch = str.match(/^(\d{1,2})[\/\-]\d{1,2}[\/\-]\d{4}/);
     if (slashMatch) {
-      dayNumber = parseInt(slashMatch[1], 10);
+      const parts = str.split(/[\/\-]/);
+      dayNumber = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
     } else {
       const d = new Date(str);
       if (!isNaN(d.getTime())) {
+        year = d.getFullYear();
+        month = d.getMonth();
         dayNumber = d.getDate();
       }
     }
   }
 
   if (isNaN(dayNumber) || dayNumber < 1) dayNumber = 1;
-  if (dayNumber <= 7) return 'Semana 1';
-  if (dayNumber <= 14) return 'Semana 2';
-  if (dayNumber <= 21) return 'Semana 3';
-  if (dayNumber <= 28) return 'Semana 4';
-  return 'Semana 5';
+
+  const firstDay = new Date(year, month, 1);
+  let firstDayOfWeek = firstDay.getDay(); 
+  // Ajustando para que a semana comece na Segunda-feira (0 = Segunda, 6 = Domingo)
+  let adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  
+  const weekNum = Math.ceil((dayNumber + adjustedFirstDay) / 7);
+  return `Semana ${weekNum}`;
 }
 
 function parseMonthYear(dateStr) {
@@ -280,8 +294,8 @@ function mapReportColumns(detailColumns = []) {
     subject: col_subject !== -1 ? col_subject : 0,
     tipo: col_tipo,
     status: col_status,
-    data_vencimento: col_data_venc !== -1 ? col_data_venc : 8,
-    data_entrega: col_data_entr !== -1 ? col_data_entr : 9,
+    data_vencimento: col_data_venc,
+    data_entrega: col_data_entr,
     refacao: col_refacao,
     task_id: col_task_id,
     horas: col_horas,
