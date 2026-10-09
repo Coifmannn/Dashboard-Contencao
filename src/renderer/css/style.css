@@ -896,9 +896,9 @@ body {
 }
 
 .btn-close-modal {
-  position: absolute;
-  top: 0;
-  right: 20px;
+  position: fixed;
+  top: 20px;
+  right: 30px;
   background: transparent;
   border: none;
   color: #94a3b8;
@@ -910,6 +910,12 @@ body {
 .btn-close-modal:hover {
   color: #fff;
   transform: scale(1.1);
+}
+
+.podium-modal-content .podium {
+  transform: scale(1.6);
+  transform-origin: center bottom;
+  margin-top: 250px;
 }
 
 /* ==========================================================================
@@ -1032,7 +1038,7 @@ body {
   align-items: flex-end;
   justify-content: center;
   gap: 20px;
-  height: 350px;
+  height: 480px;
   margin-top: 20px;
 }
 
@@ -1055,38 +1061,39 @@ body {
 }
 
 .podium-item.first {
-  height: 320px;
+  height: 440px;
   animation-delay: 0.2s;
 }
 
 .podium-item.second {
-  height: 260px;
+  height: 400px;
   animation-delay: 0.4s;
 }
 
 .podium-item.third {
-  height: 210px;
+  height: 360px;
   animation-delay: 0.6s;
 }
 
 .podium-item.fourth {
-  height: 170px;
+  height: 320px;
   animation-delay: 0.8s;
 }
 
 .podium-item.fifth {
-  height: 140px;
+  height: 280px;
   animation-delay: 1.0s;
 }
 
 .podium-item.sixth {
-  height: 110px;
+  height: 240px;
   animation-delay: 1.2s;
 }
 
 .podium-avatar {
-  width: 80px;
-  height: 80px;
+  width: 90px; /* Tamanho igual e visível para todos */
+  height: 90px;
+  flex-shrink: 0;
   border-radius: 50%;
   border: 4px solid #334155;
   background: #cbd5e1;
@@ -1098,8 +1105,6 @@ body {
 }
 
 .podium-item.first .podium-avatar {
-  width: 110px;
-  height: 110px;
   border-color: #fbbf24;
   box-shadow: 0 0 24px rgba(251, 191, 36, 0.5);
 }
@@ -1164,8 +1169,6 @@ body {
 .podium-item.fourth .podium-avatar,
 .podium-item.fifth .podium-avatar,
 .podium-item.sixth .podium-avatar {
-  width: 60px;
-  height: 60px;
   border-color: #64748b;
 }
 
