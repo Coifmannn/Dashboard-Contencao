@@ -550,7 +550,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       percentualAtingido,
       statusMeta,
       capacidadeFilaHoras,
-      totalTarefasConcluidas: analistaTasks.length
+      totalTarefasConcluidas: analistaTasks.length,
+      totalTarefasAlta: analistaTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+      totalTarefasMedia: analistaTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+      totalTarefasBaixa: analistaTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
     };
   });
 
@@ -630,7 +633,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       pontosTotais,
       percentualAtingido,
       statusMeta,
-      totalTarefasConcluidas: analistaWeekTasks.length
+      totalTarefasConcluidas: analistaWeekTasks.length,
+      totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+      totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+      totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
     };
   });
 
@@ -665,7 +671,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         pontosTotais,
         percentualAtingido,
         statusMeta,
-        totalTarefasConcluidas: analistaWeekTasks.length
+        totalTarefasConcluidas: analistaWeekTasks.length,
+        totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+        totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+        totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
       };
     });
   }
@@ -706,7 +715,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       pontosTotais,
       percentualAtingido,
       statusMeta,
-      totalTarefasConcluidas: analistaDayTasks.length
+      totalTarefasConcluidas: analistaDayTasks.length,
+      totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+      totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+      totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
     };
   });
 
@@ -738,7 +750,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         pontosTotais,
         percentualAtingido,
         statusMeta,
-        totalTarefasConcluidas: analistaDayTasks.length
+        totalTarefasConcluidas: analistaDayTasks.length,
+        totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+        totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+        totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
       };
     });
   }

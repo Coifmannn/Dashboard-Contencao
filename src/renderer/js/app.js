@@ -128,31 +128,45 @@ function setupEventListeners() {
   });
 
   const rankingMetricSelect = document.getElementById('rankingMetricSelect');
-  if (rankingMetricSelect) {
-    rankingMetricSelect.addEventListener('change', () => {
-      if (currentMetrics) {
-        renderRankingPodium(currentMetrics.tabelaMetas, 'podiumContainer', rankingMetricSelect.value);
-        
-        const weekFilter = document.getElementById('filterSemanalWeek')?.value || currentMetrics.tabelaMetasSemanal.currentWeek;
-        const weekRows = currentMetrics.tabelaMetasSemanal.porSemana[weekFilter] || currentMetrics.tabelaMetasSemanal.rows;
-        renderRankingPodium({ rows: weekRows }, 'podiumSemanalContainer', rankingMetricSelect.value);
-        
-        const dayFilterInput = document.getElementById('filterDiarioDate')?.value;
-        let dayRows = currentMetrics.tabelaMetasDiaria.rows;
-        if (dayFilterInput) {
-          const dParts = dayFilterInput.split('-');
-          const dayStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
-          if (currentMetrics.tabelaMetasDiaria.porDia[dayStr]) {
-            dayRows = currentMetrics.tabelaMetasDiaria.porDia[dayStr];
-          }
-        }
-        renderRankingPodium({ rows: dayRows }, 'podiumDiarioContainer', rankingMetricSelect.value);
-        
-        renderTabelaMetas(currentMetrics.tabelaMetas, rankingMetricSelect.value);
-        renderTabelaMetasSemanal({ rows: weekRows }, rankingMetricSelect.value);
-        renderTabelaMetasDiaria({ rows: dayRows }, rankingMetricSelect.value);
+  const rankingPriorityContainer = document.getElementById('rankingPriorityContainer');
+  const rankingPrioritySelect = document.getElementById('rankingPrioritySelect');
+
+  const updateRankings = () => {
+    if (currentMetrics) {
+      if (rankingMetricSelect.value === 'tarefas') {
+        if (rankingPriorityContainer) rankingPriorityContainer.style.display = 'block';
+      } else {
+        if (rankingPriorityContainer) rankingPriorityContainer.style.display = 'none';
       }
-    });
+      
+      renderRankingPodium(currentMetrics.tabelaMetas, 'podiumContainer', rankingMetricSelect.value);
+      
+      const weekFilter = document.getElementById('filterSemanalWeek')?.value || currentMetrics.tabelaMetasSemanal.currentWeek;
+      const weekRows = currentMetrics.tabelaMetasSemanal.porSemana[weekFilter] || currentMetrics.tabelaMetasSemanal.rows;
+      renderRankingPodium({ rows: weekRows }, 'podiumSemanalContainer', rankingMetricSelect.value);
+      
+      const dayFilterInput = document.getElementById('filterDiarioDate')?.value;
+      let dayRows = currentMetrics.tabelaMetasDiaria.rows;
+      if (dayFilterInput) {
+        const dParts = dayFilterInput.split('-');
+        const dayStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+        if (currentMetrics.tabelaMetasDiaria.porDia[dayStr]) {
+          dayRows = currentMetrics.tabelaMetasDiaria.porDia[dayStr];
+        }
+      }
+      renderRankingPodium({ rows: dayRows }, 'podiumDiarioContainer', rankingMetricSelect.value);
+      
+      renderTabelaMetas(currentMetrics.tabelaMetas, rankingMetricSelect.value);
+      renderTabelaMetasSemanal({ rows: weekRows }, rankingMetricSelect.value);
+      renderTabelaMetasDiaria({ rows: dayRows }, rankingMetricSelect.value);
+    }
+  };
+
+  if (rankingMetricSelect) {
+    rankingMetricSelect.addEventListener('change', updateRankings);
+  }
+  if (rankingPrioritySelect) {
+    rankingPrioritySelect.addEventListener('change', updateRankings);
   }
 
   const filterSemanalWeek = document.getElementById('filterSemanalWeek');
@@ -692,6 +706,15 @@ function renderTeamProgress(data) {
   });
 }
 
+function getTaskValue(row) {
+  const prioritySelect = document.getElementById('rankingPrioritySelect');
+  const pri = prioritySelect ? prioritySelect.value : 'todas';
+  if (pri === 'alta') return row.totalTarefasAlta || 0;
+  if (pri === 'media') return row.totalTarefasMedia || 0;
+  if (pri === 'baixa') return row.totalTarefasBaixa || 0;
+  return row.totalTarefasConcluidas || 0;
+}
+
 function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'horas', maxPlaces = 3) {
   const podiumContainer = document.getElementById(containerId);
   if (!podiumContainer) return;
@@ -703,9 +726,7 @@ function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'ho
   if (metric === 'pontos') {
     sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
   } else if (metric === 'tarefas') {
-    // Para mensal temos totalTarefasConcluidas. Para semanal, podemos não ter isso explícito na tabela,
-    // mas se tivermos ou precisarmos adaptar:
-    sorted.sort((a, b) => (b.totalTarefasConcluidas || 0) - (a.totalTarefasConcluidas || 0));
+    sorted.sort((a, b) => getTaskValue(b) - getTaskValue(a));
   } else {
     sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
   }
@@ -737,7 +758,7 @@ function renderRankingPodium(data, containerId = 'podiumContainer', metric = 'ho
     
     let displayValue = '';
     if (metric === 'pontos') displayValue = `${item.data.pontosTotais.toFixed(1)} pts`;
-    else if (metric === 'tarefas') displayValue = `${item.data.totalTarefasConcluidas || 0} tasks`;
+    else if (metric === 'tarefas') displayValue = `${getTaskValue(item.data)} tasks`;
     else displayValue = `${item.data.horasTrabalhadas.toFixed(1)}h`;
 
     const el = document.createElement('div');
@@ -761,7 +782,7 @@ function renderTabelaMetas(data, metric = 'horas') {
   
   let sorted = [...data.rows];
   if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
-  else if (metric === 'tarefas') sorted.sort((a, b) => (b.totalTarefasConcluidas || 0) - (a.totalTarefasConcluidas || 0));
+  else if (metric === 'tarefas') sorted.sort((a, b) => getTaskValue(b) - getTaskValue(a));
   else sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
 
   sorted.forEach(r => {
@@ -822,7 +843,7 @@ function renderTabelaMetasSemanal(data, metric = 'horas') {
 
   let sorted = [...data.rows];
   if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
-  else if (metric === 'tarefas') sorted.sort((a, b) => (b.totalTarefasConcluidas || 0) - (a.totalTarefasConcluidas || 0));
+  else if (metric === 'tarefas') sorted.sort((a, b) => getTaskValue(b) - getTaskValue(a));
   else sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
 
   sorted.forEach(r => {
@@ -858,7 +879,7 @@ function renderTabelaMetasDiaria(data, metric = 'horas') {
 
   let sorted = [...data.rows];
   if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
-  else if (metric === 'tarefas') sorted.sort((a, b) => (b.totalTarefasConcluidas || 0) - (a.totalTarefasConcluidas || 0));
+  else if (metric === 'tarefas') sorted.sort((a, b) => getTaskValue(b) - getTaskValue(a));
   else sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
 
   sorted.forEach(r => {
