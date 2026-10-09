@@ -287,9 +287,14 @@ function mapReportColumns(detailColumns = []) {
     else if (c.includes('assunto') || c.includes('subject')) col_subject = idx;
     else if (c.includes('tipo') || c.includes('complexidade') || c.includes('type')) col_tipo = idx;
     else if (c.includes('status')) col_status = idx;
-    else if (c.includes('vencimento') || c.includes('due')) col_data_venc = idx;
-    else if (c.includes('conclusao') || c.includes('entrega') || c.includes('completed') || c.includes('closed') || c.includes('data') || c.includes('date')) {
-      if (col_data_entr === -1) col_data_entr = idx;
+    else if (c.includes('vencimento') || c.includes('due')) {
+      col_data_venc = idx;
+    }
+    else if (c.includes('conclusao') || c.includes('entrega') || c.includes('completed') || c.includes('closed')) {
+      col_data_entr = idx; // Prioridade alta para conclusão
+    }
+    else if ((c.includes('data') || c.includes('date')) && !c.includes('cria') && !c.includes('create')) {
+      if (col_data_entr === -1) col_data_entr = idx; // Fallback se não achou as palavras chave exatas, mas exclui data de criação
     }
     else if (c.includes('refacao') || c.includes('rework')) col_refacao = idx;
     else if (c.includes('id da tarefa') || c.includes('task id') || c.includes('activityid')) col_task_id = idx;
