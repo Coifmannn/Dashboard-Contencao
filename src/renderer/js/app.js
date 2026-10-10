@@ -618,11 +618,12 @@ function renderDashboard(metrics) {
 
   // Atualiza contador da aba
   navTasksCount.textContent = k.concluidasCount + k.filaCount;
+  const currentMetric = document.getElementById('rankingMetricSelect')?.value || 'horas';
 
   // 3. Tabela 1: Metas por Analista
-  renderTabelaMetas(metrics.tabelaMetas);
+  renderTabelaMetas(metrics.tabelaMetas, currentMetric);
   renderTeamProgress(metrics.tabelaMetas);
-  renderRankingPodium(metrics.tabelaMetas, 'podiumContainer');
+  renderRankingPodium(metrics.tabelaMetas, 'podiumContainer', currentMetric);
 
   if (metrics.tabelaMetasSemanal) {
     const weekSelect = document.getElementById('filterSemanalWeek');
@@ -637,8 +638,8 @@ function renderDashboard(metrics) {
       weekSelect.value = metrics.tabelaMetasSemanal.currentWeek;
     }
     const currentWeekRows = metrics.tabelaMetasSemanal.porSemana[metrics.tabelaMetasSemanal.currentWeek] || metrics.tabelaMetasSemanal.rows;
-    renderTabelaMetasSemanal({ rows: currentWeekRows });
-    renderRankingPodium({ rows: currentWeekRows }, 'podiumSemanalContainer');
+    renderTabelaMetasSemanal({ rows: currentWeekRows }, currentMetric);
+    renderRankingPodium({ rows: currentWeekRows }, 'podiumSemanalContainer', currentMetric);
   }
 
   if (metrics.tabelaMetasDiaria) {
@@ -648,8 +649,8 @@ function renderDashboard(metrics) {
       const dParts = metrics.tabelaMetasDiaria.currentDay.split('/');
       dateInput.value = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
     }
-    renderTabelaMetasDiaria(metrics.tabelaMetasDiaria);
-    renderRankingPodium(metrics.tabelaMetasDiaria, 'podiumDiarioContainer');
+    renderTabelaMetasDiaria(metrics.tabelaMetasDiaria, currentMetric);
+    renderRankingPodium(metrics.tabelaMetasDiaria, 'podiumDiarioContainer', currentMetric);
   }
 
   // 4. Tabela 2: Volume por Prioridade
