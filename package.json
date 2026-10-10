@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "dist": "electron-builder --win --dir"
+    "dist": "electron-builder --win",
+    "build-dir": "electron-builder --win --dir"
   },
   "keywords": [
     "electron",
@@ -20,9 +21,18 @@
     "appId": "com.idealtrends.painelcontencao",
     "productName": "Painel de Contencao",
     "win": {
-      "target": "dir",
-      "icon": "assets/icon.ico",
-      "sign": null
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Painel de Contenção"
     },
     "forceCodeSigning": false,
     "asar": false,
