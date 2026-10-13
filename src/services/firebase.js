@@ -21,6 +21,7 @@ const possibleEnvPaths = [
   path.resolve(process.cwd(), '.env'), // Diretório de execução
   app && app.isPackaged ? path.join(path.dirname(process.execPath), '.env') : null, // Pasta do .exe (modo build)
   app && app.isPackaged ? path.join(process.resourcesPath, '.env') : null, // Pasta resources
+  app && app.isPackaged ? path.join(process.resourcesPath, 'app', '.env') : null, // Pasta resources/app
 ].filter(Boolean);
 
 let envLoaded = false;

@@ -40,7 +40,14 @@
       "src/**/*",
       "assets/**/*",
       "data/**/*",
-      "package.json"
+      "package.json",
+      ".env"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
     ]
   },
   "devDependencies": {
