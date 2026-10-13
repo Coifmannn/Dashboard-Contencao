@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "dist": "electron-builder --win --dir"
+    "dist": "electron-builder --win",
+    "build-dir": "electron-builder --win --dir"
   },
   "keywords": [
     "electron",
@@ -20,9 +21,18 @@
     "appId": "com.idealtrends.painelcontencao",
     "productName": "Painel de Contencao",
     "win": {
-      "target": "dir",
-      "icon": "assets/icon.ico",
-      "sign": null
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Painel de Contenção"
     },
     "forceCodeSigning": false,
     "asar": false,
@@ -35,11 +45,11 @@
   },
   "devDependencies": {
     "electron": "^30.0.0",
-    "electron-builder": "^24.13.3",
-    "electron-reload": "^2.0.0-alpha.1"
+    "electron-builder": "^26.15.3",
+    "electron-reload": "^1.2.3"
   },
   "dependencies": {
     "dotenv": "^18.0.5",
-    "firebase": "^12.19.0"
+    "firebase": "^9.14.0"
   }
 }

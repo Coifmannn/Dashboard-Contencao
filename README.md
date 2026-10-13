@@ -2,17 +2,24 @@
 
 Aplicação Desktop nativa em **Electron** e **JavaScript/Node.js puro** (sem uso de Python) para o time de contenção do Grupo Ideal Trends.
 
-Substitui completamente o fluxo legado (`Extensão Chrome -> Google Apps Script -> Planilha Excel`) por uma aplicação nativa de alta performance que se conecta diretamente à API do Salesforce.
+Substitui completamente o fluxo legado (`Extensão Chrome -> Google Apps Script -> Planilha Excel`) por uma aplicação nativa de alta performance que se conecta diretamente à API do Salesforce e sincroniza dados com o **Firebase**.
 
 ---
 
 ## 🚀 Como Iniciar a Aplicação
 
-Caso seja a primeira com a aplicação, rode esta sequência:
+Caso seja a primeira vez utilizando a aplicação, rode esta sequência no terminal:
 
-npm install (somente no primeiro uso)
+```bash
+npm install
+npm start
+```
 
-npm start (para os demais usos)
+Para os demais usos, basta executar o atalho ou:
+
+```bash
+npm start
+```
 
 ---
 
@@ -20,34 +27,48 @@ npm start (para os demais usos)
 
 - **Framework**: Electron (Main + Preload + Renderer)
 - **Linguagem**: 100% JavaScript (Node.js no backend, ES6+ no frontend)
-- **Autenticação**: OAuth 2.0 PKCE via Connected App oficial `PlatformCLI` (com servidor HTTP nativo do Node.js na porta 1717 e auto-refresh de token transparente).
+- **Autenticação Salesforce**: OAuth 2.0 PKCE via Connected App oficial `PlatformCLI` (com servidor HTTP nativo do Node.js na porta 1717 e auto-refresh de token transparente).
 - **Extração Salesforce**: Analytics Reports API consumindo os relatórios oficiais:
   - **Fila em Aberto**: `00ObL000007gu6bUAA`
   - **Concluídas / Metas**: `00ObL000007gx7hUAA`
-- **Sincronização Periódica**: Auto-refresh a cada 30 minutos em background + botão sob demanda.
+- **Armazenamento Firebase**: Integração com Firebase para salvar históricos mensais e configurações de conta (Avatares).
+- **Sincronização Periódica**: Auto-refresh em background + botão manual sob demanda.
+- **Exportação**: Geração nativa de relatórios em formato **PDF**.
 - **Cache Local Instantâneo**: Os dados são persistidos em `data/cached_dashboard.json`, garantindo abertura imediata do app (< 100ms) mesmo sem internet.
 
 ---
 
 ## 👥 Analistas Mapeados
-1. Anderson Almeida (Carga: 7.5h/dia útil | Regra Setembro 2026: 48h)
-2. Gustavo Chagas (Carga: 7.5h/dia útil)
-3. Mariane Oliveira (Carga: 7.5h/dia útil)
-4. Thiago Santos (Carga: 7.5h/dia útil)
-5. Felipe Wustemberg (Carga: 7.5h/dia útil)
-6. Heloisa Yamanaka (Carga: 7.5h/dia útil)
+1. Anderson Almeida
+2. Gustavo Chagas
+3. Mariane Oliveira
+4. Thiago Santos
+5. Felipe Wustemberg
+6. Heloisa Yamanaka
 
 ---
 
-## 📐 Estrutura das Telas
-1. **Dashboard Executivo**:
-   - Seletor do Mês (Setembro 2026, Agosto 2026, etc.)
+## 📐 Estrutura das Telas (Menus)
+
+1. **Dashboard (Visão Geral do Time)**:
+   - Seletor do Mês e dias úteis trabalhados.
    - 4 Cards de KPI: Saldo Geral, Horas Trabalhadas, Previsão Parcial e Em Aberto (Fila).
-   - Tabela 1: Metas por Analista (Carga, Meta, Previsão, Horas Trab, Saldo, Pontos, % Atingido, Status, Capacidade Fila).
-   - Tabela 2: Volume por Nível de Prioridade (Blog, API/Token, Urgente, Alta, Média, Baixa, Backup, Banco).
-   - Tabela 3: Horas Semanais por Analista (Semana 1 a 5 vs. Meta vs. Ritmo).
-   - Tabela 4: Contagem de Tarefas Concluídas por Semana e Mês.
-2. **Central de Tarefas**:
-   - Busca em tempo real por Assunto, ID ou Analista.
-   - Filtros por Concluídas vs Fila e Prioridade.
-   - Botão direto para abrir a tarefa no Salesforce (`https://grupo-ideal-trends.lightning.force.com/lightning/r/Task/{id}/view`).
+   - Tabela de Metas por Analista (Carga, Meta, Previsão, Horas Trab, Saldo, Pontos, % Atingido, Status, Capacidade Fila).
+   - Progresso do Time visual.
+   - Pódio interativo de **Destaques do Mês**.
+   
+2. **Fila de Tarefas**:
+   - Central de Tarefas com busca em tempo real por Assunto, ID ou Analista.
+   - Filtros por Concluídas vs Fila, Prioridade e Prazos.
+   - Botão direto para abrir a tarefa diretamente no Salesforce.
+
+3. **Ranking**:
+   - Submenus divididos em: **Mensal**, **Semanal** e **Diário**.
+   - Pódios dinâmicos exibindo as 3 (ou mais) melhores colocações.
+   - Sistema de filtros por métrica: **Ranking por Horas**, **Ranking por Pontos** ou **Ranking por Tarefas** (com seletor de prioridade: alta, média, baixa).
+   - Exportação do Ranking em **PDF**.
+
+4. **Configurações**:
+   - Customização de Interface (Temas).
+   - Personalização de **Avatar / Foto de Perfil** do analista, que sincroniza diretamente com o pódio e menus. Pode usar os avatares padrão gerados na hora ou fazer upload customizado.
+   - Troca rápida de conta (Switch Account) para permitir multilogin de diferentes analistas na mesma máquina.
