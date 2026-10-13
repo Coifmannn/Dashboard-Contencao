@@ -6,12 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-<<<<<<< HEAD
     "dist": "electron-builder --win",
     "build-dir": "electron-builder --win --dir"
-=======
-    "dist": "electron-builder --win"
->>>>>>> 73c062bed1a947993a654d72e0e914a3ef7468eb
   },
   "keywords": [
     "electron",
@@ -23,9 +19,8 @@
   "license": "UNLICENSED",
   "build": {
     "appId": "com.idealtrends.painelcontencao",
-    "productName": "SalesDash",
+    "productName": "Painel de Contenção",
     "win": {
-<<<<<<< HEAD
       "target": [
         "nsis"
       ],
@@ -35,23 +30,12 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Painel de Contenção"
-=======
-      "target": "nsis",
-      "sign": null
->>>>>>> 73c062bed1a947993a654d72e0e914a3ef7468eb
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
-      "shortcutName": "SalesDash",
-      "createDesktopShortcut": true
     },
     "forceCodeSigning": false,
-    "asar": true,
+    "asar": false,
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -60,6 +44,7 @@
     ]
   },
   "devDependencies": {
+    "@noble/hashes": "^1.8.0",
     "electron": "^30.0.0",
     "electron-builder": "^26.15.3",
     "electron-reload": "^1.2.3"
