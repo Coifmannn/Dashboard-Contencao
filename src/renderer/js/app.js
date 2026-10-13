@@ -540,6 +540,14 @@ async function checkAuthStatus() {
   }
 }
 
+function updateLastSyncDisplay(timestamp) {
+  if (!timestamp || !lastSyncTimeEl) return;
+  const d = new Date(timestamp);
+  if (!isNaN(d.getTime())) {
+    lastSyncTimeEl.textContent = `Última sinc: ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+}
+
 async function loadDashboard(selectedMonth = null) {
   try {
     const res = await window.api.getDashboardData(selectedMonth);
@@ -559,8 +567,7 @@ async function loadDashboard(selectedMonth = null) {
     renderDashboard(currentMetrics);
 
     if (res.lastSync) {
-      const d = new Date(res.lastSync);
-      lastSyncTimeEl.textContent = `Última sinc: ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      updateLastSyncDisplay(res.lastSync);
     }
 
     startCountdownTimer(nextSyncTimestamp);
@@ -713,6 +720,7 @@ function getTaskValue(row) {
   if (pri === 'alta') return row.totalTarefasAlta || 0;
   if (pri === 'media') return row.totalTarefasMedia || 0;
   if (pri === 'baixa') return row.totalTarefasBaixa || 0;
+  if (row.priorityCounts && row.priorityCounts[pri] !== undefined) return row.priorityCounts[pri];
   return row.totalTarefasConcluidas || 0;
 }
 
@@ -909,39 +917,32 @@ function renderTabelaMetasDiaria(data, metric = 'horas') {
 }
 
 function renderTabelaPrioridades(data) {
+  if (!data || !data.rows) return;
+  const list = data.prioridadesList || [
+    'CRIAÇÃO DE BLOG', 'ERRO BLOG', 'BLOG',
+    'CRIAÇÃO DE TOKEN', 'ALTERAR TOKEN', 'API/TOKEN',
+    'ERRO SIG', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'
+  ];
+
   tabelaPrioridadesBody.innerHTML = '';
   data.rows.forEach(r => {
     const tr = document.createElement('tr');
+    const cells = list.map(p => `<td class="num-cell">${r[p] !== undefined ? r[p] : 0}</td>`).join('');
     tr.innerHTML = `
       <td class="analyst-name">${r.analista}</td>
-      <td class="num-cell">${r['BLOG']}</td>
-      <td class="num-cell">${r['API/TOKEN']}</td>
-      <td class="num-cell">${r['URGENTE']}</td>
-      <td class="num-cell">${r['ALTA']}</td>
-      <td class="num-cell">${r['MÉDIA']}</td>
-      <td class="num-cell">${r['BAIXA']}</td>
-      <td class="num-cell">${r['BACKUP']}</td>
-      <td class="num-cell">${r['T. DE BANCO']}</td>
-      <td class="num-cell">${r['CHATBOT']}</td>
-      <td class="num-cell font-bold" style="color: #38bdf8;">${r.total}</td>
+      ${cells}
+      <td class="num-cell font-bold" style="color: #38bdf8;">${r.total !== undefined ? r.total : 0}</td>
     `;
     tabelaPrioridadesBody.appendChild(tr);
   });
 
-  const tot = data.total;
+  const tot = data.total || {};
+  const totCells = list.map(p => `<td class="num-cell">${tot[p] !== undefined ? tot[p] : 0}</td>`).join('');
   tabelaPrioridadesFoot.innerHTML = `
     <tr>
-      <td>${tot.analista}</td>
-      <td class="num-cell">${tot['BLOG']}</td>
-      <td class="num-cell">${tot['API/TOKEN']}</td>
-      <td class="num-cell">${tot['URGENTE']}</td>
-      <td class="num-cell">${tot['ALTA']}</td>
-      <td class="num-cell">${tot['MÉDIA']}</td>
-      <td class="num-cell">${tot['BAIXA']}</td>
-      <td class="num-cell">${tot['BACKUP']}</td>
-      <td class="num-cell">${tot['T. DE BANCO']}</td>
-      <td class="num-cell">${tot['CHATBOT']}</td>
-      <td class="num-cell font-bold" style="color: #38bdf8;">${tot.total}</td>
+      <td>${tot.analista || 'TOTAL GERAL'}</td>
+      ${totCells}
+      <td class="num-cell font-bold" style="color: #38bdf8;">${tot.total !== undefined ? tot.total : 0}</td>
     </tr>
   `;
 }
@@ -1177,6 +1178,12 @@ async function triggerManualSync(targetMonth = null) {
     const res = await window.api.syncNow(targetMonth);
     if (res.success) {
       currentMetrics = res.data;
+      if (res.lastSync) {
+        updateLastSyncDisplay(res.lastSync);
+      }
+      if (res.nextSync) {
+        startCountdownTimer(res.nextSync);
+      }
       renderDashboard(currentMetrics);
       showToast('Sincronização concluída com sucesso!', 'success');
       loadTasksList();
@@ -1202,11 +1209,17 @@ function setupSyncListeners() {
       syncNowBtn.disabled = false;
     }
 
-    if (data.status === 'success' && data.data) {
-      renderDashboard(data.data);
+    if (data.status === 'success') {
+      if (data.data) {
+        renderDashboard(data.data);
+      }
+      if (data.lastSync) {
+        updateLastSyncDisplay(data.lastSync);
+      }
       if (data.nextSync) {
         startCountdownTimer(data.nextSync);
       }
+      loadTasksList();
     }
   });
 
@@ -1214,6 +1227,9 @@ function setupSyncListeners() {
     if (data.nextSync) {
       nextSyncTimestamp = data.nextSync;
       updateCountdownDisplay();
+    }
+    if (data.lastSync) {
+      updateLastSyncDisplay(data.lastSync);
     }
   });
 }

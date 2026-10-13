@@ -61,19 +61,21 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
     const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
     if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) {
       h = 2.0; p = 2.0;
-    } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog')) {
+    } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog')) {
       h = 5.0; p = 5.0;
-    } else if (sStr.includes('erro blog')) {
+    } else if (sStr.includes('erro blog') || sStr.includes('erro no blog')) {
       h = 2.0; p = 2.0;
     } else if (tpStr.includes('blog') || sStr.includes('blog')) {
       h = 5.0; p = 5.0;
-    } else if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('alterar token')) {
+    } else if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('criacao do token')) {
+      h = 1.0; p = 1.0;
+    } else if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token')) {
       h = 1.0; p = 1.0;
     } else if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('imagem quebrada') || tpStr.includes('imagem') || sStr.includes('quebrada')) {
       h = 1.0; p = 1.0;
-    } else if (sStr.includes('erro sig')) {
+    } else if (sStr.includes('erro sig') || sStr.includes('erro no sig')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('t.')) {
       h = 1.0; p = 1.0;
@@ -108,8 +110,17 @@ function classifyPriorityCategory(subject, rawTipo) {
   const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
 
   if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
+
+  if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog') || tpStr.includes('criacao do blog') || tpStr.includes('criacao de blog')) return 'CRIAÇÃO DE BLOG';
+  if (sStr.includes('erro blog') || sStr.includes('erro no blog') || tpStr.includes('erro blog')) return 'ERRO BLOG';
   if (tpStr.includes('blog') || sStr.includes('blog')) return 'BLOG';
+
+  if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('criacao do token') || tpStr.includes('criacao token') || tpStr.includes('criacao de token')) return 'CRIAÇÃO DE TOKEN';
+  if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token') || tpStr.includes('alterar token') || tpStr.includes('alteracao de token')) return 'ALTERAR TOKEN';
   if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) return 'API/TOKEN';
+
+  if (sStr.includes('erro sig') || sStr.includes('erro no sig') || tpStr.includes('erro sig')) return 'ERRO SIG';
+
   if (tpStr.includes('urg') || sStr.includes('urg')) return 'URGENTE';
   if (tpStr.includes('alta') || sStr.includes('alta')) return 'ALTA';
   if (tpStr.includes('med') || sStr.includes('med')) return 'MÉDIA';
@@ -487,6 +498,34 @@ function parseReportData(rawReport, category = 'concluidas') {
   return tasksList;
 }
 
+const PRIORIDADES_LIST = [
+  'CRIAÇÃO DE BLOG',
+  'ERRO BLOG',
+  'BLOG',
+  'CRIAÇÃO DE TOKEN',
+  'ALTERAR TOKEN',
+  'API/TOKEN',
+  'ERRO SIG',
+  'URGENTE',
+  'ALTA',
+  'MÉDIA',
+  'BAIXA',
+  'BACKUP',
+  'T. DE BANCO',
+  'CHATBOT'
+];
+
+function getPriorityCounts(tasks = []) {
+  const counts = {};
+  PRIORIDADES_LIST.forEach(p => counts[p] = 0);
+  tasks.forEach(t => {
+    const p = t.priorityCategory || 'ALTA';
+    if (counts[p] !== undefined) counts[p]++;
+    else counts['ALTA']++;
+  });
+  return counts;
+}
+
 /**
  * Consolida todas as métricas para a Dashboard completa
  */
@@ -553,7 +592,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaTasks.length,
       totalTarefasAlta: analistaTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaTasks)
     };
   });
 
@@ -636,7 +676,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaWeekTasks.length,
       totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaWeekTasks)
     };
   });
 
@@ -674,7 +715,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         totalTarefasConcluidas: analistaWeekTasks.length,
         totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
         totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-        totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+        totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+        priorityCounts: getPriorityCounts(analistaWeekTasks)
       };
     });
   }
@@ -718,7 +760,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaDayTasks.length,
       totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaDayTasks)
     };
   });
 
@@ -753,24 +796,17 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         totalTarefasConcluidas: analistaDayTasks.length,
         totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
         totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-        totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+        totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+        priorityCounts: getPriorityCounts(analistaDayTasks)
       };
     });
   }
 
   // 2. Tabela 2: Tarefas por Nível de Prioridade (Volume de Entregas)
-  const prioridadesList = ['BLOG', 'API/TOKEN', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'];
+  const prioridadesList = PRIORIDADES_LIST;
   const tabelaPrioridades = ACTIVE_ANALYSTS.map(analista => {
     const analistaTasks = monthTasks.filter(t => t.analista === analista.name);
-    const counts = {};
-    prioridadesList.forEach(p => counts[p] = 0);
-
-    analistaTasks.forEach(t => {
-      const p = t.priorityCategory || 'ALTA';
-      if (counts[p] !== undefined) counts[p]++;
-      else counts['ALTA']++;
-    });
-
+    const counts = getPriorityCounts(analistaTasks);
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return {
       analista: analista.name,
@@ -904,6 +940,7 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
 module.exports = {
   ACTIVE_ANALYSTS,
   MONTH_NAMES_PT,
+  PRIORIDADES_LIST,
   parseReportData,
   buildDashboardMetrics,
   calculateHorasEPontos,

@@ -102,12 +102,26 @@
             <div class="select-arrow" style="color: #38bdf8;">▼</div>
           </div>
 
-          <div class="custom-select-container" style="width: 180px; display: none;" id="rankingPriorityContainer">
+          <div class="custom-select-container" style="width: 200px; display: none;" id="rankingPriorityContainer">
             <select id="rankingPrioritySelect" class="custom-select" style="background: rgba(15, 23, 42, 0.8); border-color: #334155; font-size: 13px; font-weight: 600; color: #38bdf8;">
               <option value="todas">Todas Prioridades</option>
               <option value="alta">🔴 Alta Prioridade</option>
               <option value="media">🟡 Média Prioridade</option>
               <option value="baixa">🟢 Baixa Prioridade</option>
+              <option value="CRIAÇÃO DE BLOG">Criação de Blog</option>
+              <option value="ERRO BLOG">Erro Blog</option>
+              <option value="BLOG">Blog</option>
+              <option value="CRIAÇÃO DE TOKEN">Criação de Token</option>
+              <option value="ALTERAR TOKEN">Alterar Token</option>
+              <option value="API/TOKEN">API / Token</option>
+              <option value="ERRO SIG">Erro SIG</option>
+              <option value="URGENTE">Urgente</option>
+              <option value="ALTA">Alta</option>
+              <option value="MÉDIA">Média</option>
+              <option value="BAIXA">Baixa</option>
+              <option value="BACKUP">Backup</option>
+              <option value="T. DE BANCO">Troca de Banco</option>
+              <option value="CHATBOT">Chatbot</option>
             </select>
             <div class="select-arrow" style="color: #38bdf8;">▼</div>
           </div>
@@ -220,22 +234,9 @@
           </div>
         </div>
 
-        <div class="dashboard-main-grid">
-          <div class="glass-panel section-card">
-            <div class="card-header">
-              <h2>Capacidade da Fila</h2>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #94a3b8;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            </div>
-            <div class="chart-container">
-              <div class="donut-chart">
-                <div class="donut-text">57%</div>
-              </div>
-              <p class="chart-subtext">29 de 50 tickets (Capacidade Max)</p>
-            </div>
-          </div>
-          
-           <!-- Desempenho -->
-          <div class="glass-panel section-card">
+        <!-- Volume por Nível de Prioridade (Largura Total) -->
+        <div class="dashboard-main-grid" style="grid-template-columns: 1fr; margin-bottom: 20px;">
+          <div class="glass-panel section-card w-full">
              <div class="card-header">
               <h2>Volume por Nível de Prioridade</h2>
             </div>
@@ -244,16 +245,21 @@
                   <thead>
                     <tr>
                       <th>Colaborador</th>
-                      <th>BLOG</th>
-                      <th>API/TOK</th>
-                      <th>URG</th>
-                      <th>ALTA</th>
-                      <th>MÉD</th>
-                      <th>BAIXA</th>
-                      <th>BKP</th>
-                      <th>BCO</th>
-                      <th>BOT</th>
-                      <th>TOT</th>
+                      <th title="Criação de Blog">C.BLOG</th>
+                      <th title="Erro Blog">E.BLOG</th>
+                      <th title="Blog">BLOG</th>
+                      <th title="Criação de Token">C.TOK</th>
+                      <th title="Alterar Token">ALT.TOK</th>
+                      <th title="API / Token">API/TOK</th>
+                      <th title="Erro SIG">E.SIG</th>
+                      <th title="Urgente">URG</th>
+                      <th title="Alta">ALTA</th>
+                      <th title="Média">MÉD</th>
+                      <th title="Baixa">BAIXA</th>
+                      <th title="Backup">BKP</th>
+                      <th title="Troca de Banco">BCO</th>
+                      <th title="Chatbot">BOT</th>
+                      <th title="Total Geral">TOT</th>
                     </tr>
                   </thead>
                   <tbody id="tabelaPrioridadesBody"></tbody>
@@ -343,14 +349,19 @@
                 </select>
                 <select id="filterPriority" class="filter-select">
                   <option value="todos">Todas Prioridades</option>
+                  <option value="CRIAÇÃO DE BLOG">Criação de Blog</option>
+                  <option value="ERRO BLOG">Erro Blog</option>
+                  <option value="BLOG">Blog</option>
+                  <option value="CRIAÇÃO DE TOKEN">Criação de Token</option>
+                  <option value="ALTERAR TOKEN">Alterar Token</option>
+                  <option value="API/TOKEN">API / Token</option>
+                  <option value="ERRO SIG">Erro SIG</option>
                   <option value="URGENTE">Urgente</option>
                   <option value="ALTA">Alta</option>
                   <option value="MÉDIA">Média</option>
                   <option value="BAIXA">Baixa</option>
-                  <option value="BLOG">Blog</option>
-                  <option value="API/TOKEN">API / Token</option>
-                  <option value="T. DE BANCO">Troca de Banco</option>
                   <option value="BACKUP">Backup</option>
+                  <option value="T. DE BANCO">Troca de Banco</option>
                   <option value="CHATBOT">Chatbot</option>
                 </select>
               </div>

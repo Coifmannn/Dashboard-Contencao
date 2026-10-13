@@ -179,7 +179,12 @@ async function performSync(notifyWebContents = true, targetMonth = null) {
       });
     }
 
-    return { success: true, data: dashboardMetrics };
+    return {
+      success: true,
+      data: dashboardMetrics,
+      lastSync: timestamp,
+      nextSync: nextSyncTimestamp
+    };
   } catch (err) {
     console.error('[Main] Falha na sincronização:', err);
     if (notifyWebContents && mainWindow && !mainWindow.isDestroyed()) {
