@@ -19,7 +19,7 @@
   "license": "UNLICENSED",
   "build": {
     "appId": "com.idealtrends.painelcontencao",
-    "productName": "Painel de Contencao",
+    "productName": "Painel de Contenção",
     "win": {
       "target": [
         "nsis"
@@ -30,7 +30,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Painel de Contenção"
     },
@@ -44,6 +44,7 @@
     ]
   },
   "devDependencies": {
+    "@noble/hashes": "^1.8.0",
     "electron": "^30.0.0",
     "electron-builder": "^26.15.3",
     "electron-reload": "^1.2.3"
