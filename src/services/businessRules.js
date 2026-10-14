@@ -26,6 +26,37 @@ function cleanString(str) {
     .trim();
 }
 
+/**
+ * Remove URLs e domínios do assunto/título da tarefa para isolar apenas a nomenclatura
+ * Exemplo: 'Alt - Alta - www.api.det.br' -> 'Alt - Alta'
+ * Exemplo: 'Alt - Urgente - www.papillonembalagens.com.br' -> 'Alt - Urgente'
+ * Exemplo: 'Troca de banco - www.api.det.br' -> 'Troca de banco'
+ */
+function removeDomain(str) {
+  if (!str) return '';
+  let s = String(str);
+  // Protocolos: http://, https://, ftp://
+  s = s.replace(/https?:\/\/[^\s\)\],]+/gi, '');
+  // www. ou www,
+  s = s.replace(/www[,.][a-z0-9_\-\.]+(?:\/[^\s\)\],]*)?/gi, '');
+  // Domínios com extensões (ex: .com.br, .det.br, .ind.br, etc.)
+  s = s.replace(/(?:[a-z0-9_\-]+\.)+[a-z]{2,}(?:\/[^\s\)\],]*)?/gi, '');
+  // Limpa parênteses ou colchetes vazios restantes (ex: de ' (dominio.com.br)')
+  s = s.replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '');
+  // Remove separadores e espaços residuais nas bordas
+  s = s.replace(/[\s\-|–—/|,]+$/g, '').replace(/^[\s\-|–—/|,]+/g, '').trim();
+  return s;
+}
+
+/**
+ * Verifica se a palavra existe como token independente (evita match de 'api' dentro de 'cardápio' ou 'papillon')
+ */
+function hasWord(str, word) {
+  if (!str) return false;
+  const regex = new RegExp(`(^|[^a-z0-9])${word}([^a-z0-9]|$)`, 'i');
+  return regex.test(str);
+}
+
 function mapAnalystName(rawName) {
   if (!rawName) return null;
   const clean = cleanString(rawName);
@@ -46,20 +77,20 @@ function mapAnalystName(rawName) {
 
 function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework) {
   const tIdStr = String(taskId || '');
-  const sStr = cleanString(subject);
-  const tpStr = cleanString(rawTipo);
+  const cleanSubjectOrig = cleanString(subject);
+  const sStr = cleanString(removeDomain(subject));
+  const tpStr = cleanString(removeDomain(rawTipo));
 
   let h = parseFloat(String(rawHoras || 0).replace(',', '.'));
   let p = parseFloat(String(rawPontos || 0).replace(',', '.'));
 
   // Exceção especial: Tarefa 00TbL00000cL4scUAC ou assunto com proarbaloes = 12h / 12pts
-  if (tIdStr.includes('00TbL00000cL4scUAC') || sStr.includes('proarbaloes')) {
+  if (tIdStr.includes('00TbL00000cL4scUAC') || sStr.includes('proarbaloes') || cleanSubjectOrig.includes('proarbaloes')) {
     return { horas: 12.0, pontos: 12.0 };
   }
 
   if (isNaN(h) || h === 0) {
-    const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
-    if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) {
+    if (sStr.includes('chatbot') || tpStr.includes('chatbot')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog')) {
       h = 5.0; p = 5.0;
@@ -71,13 +102,13 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
       h = 1.0; p = 1.0;
     } else if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token')) {
       h = 1.0; p = 1.0;
-    } else if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
+    } else if (tpStr.includes('token') || hasWord(tpStr, 'api') || sStr.includes('token') || hasWord(sStr, 'api')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('imagem quebrada') || tpStr.includes('imagem') || sStr.includes('quebrada')) {
       h = 1.0; p = 1.0;
     } else if (sStr.includes('erro sig') || sStr.includes('erro no sig')) {
       h = 2.0; p = 2.0;
-    } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('t.')) {
+    } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('banco') || sStr.includes('t.') || tpStr.includes('t.')) {
       h = 1.0; p = 1.0;
     } else if (tpStr.includes('baixa') || tpStr.includes('facil') || sStr.includes('baixa') || sStr.includes('facil')) {
       h = 4.0; p = 4.0;
@@ -105,11 +136,10 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
 }
 
 function classifyPriorityCategory(subject, rawTipo) {
-  const sStr = cleanString(subject);
-  const tpStr = cleanString(rawTipo);
-  const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
+  const sStr = cleanString(removeDomain(subject));
+  const tpStr = cleanString(removeDomain(rawTipo));
 
-  if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
+  if (sStr.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
 
   if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog') || tpStr.includes('criacao do blog') || tpStr.includes('criacao de blog')) return 'CRIAÇÃO DE BLOG';
   if (sStr.includes('erro blog') || sStr.includes('erro no blog') || tpStr.includes('erro blog')) return 'ERRO BLOG';
@@ -117,7 +147,7 @@ function classifyPriorityCategory(subject, rawTipo) {
 
   if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('criacao do token') || tpStr.includes('criacao token') || tpStr.includes('criacao de token')) return 'CRIAÇÃO DE TOKEN';
   if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token') || tpStr.includes('alterar token') || tpStr.includes('alteracao de token')) return 'ALTERAR TOKEN';
-  if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) return 'API/TOKEN';
+  if (tpStr.includes('token') || hasWord(tpStr, 'api') || sStr.includes('token') || hasWord(sStr, 'api')) return 'API/TOKEN';
 
   if (sStr.includes('erro sig') || sStr.includes('erro no sig') || tpStr.includes('erro sig')) return 'ERRO SIG';
 
@@ -944,6 +974,9 @@ module.exports = {
   parseReportData,
   buildDashboardMetrics,
   calculateHorasEPontos,
+  classifyPriorityCategory,
+  removeDomain,
+  hasWord,
   getMonthWorkdays,
   parseMonthYear
 };

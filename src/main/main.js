@@ -16,7 +16,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const { loadTokens, clearTokens, startLoginFlow } = require('../services/salesforceAuth');
 const { fetchAllReports } = require('../services/salesforceReports');
-const { parseReportData, buildDashboardMetrics } = require('../services/businessRules');
+const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos } = require('../services/businessRules');
 const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase } = require('../services/firebase');
 
 let mainWindow = null;
@@ -92,9 +92,25 @@ let inMemoryState = {
 // Carrega cache na inicialização
 const initialCache = loadCachedData();
 if (initialCache && initialCache.allTasks) {
-  inMemoryState.allTasks = initialCache.allTasks;
+  // Reavalia tarefas do cache aplicando as regras vigentes (sem contaminação de domínio e sem falso-positivo de API)
+  const updatedTasks = initialCache.allTasks.map(t => {
+    const priorityCategory = classifyPriorityCategory(t.subject, '');
+    const metrics = calculateHorasEPontos(t.taskId, t.analista, t.subject, '', 0, 0, t.isRework);
+    return {
+      ...t,
+      tipo: priorityCategory,
+      priorityCategory,
+      horas: metrics.horas,
+      pontos: metrics.pontos
+    };
+  });
+  inMemoryState.allTasks = updatedTasks;
   inMemoryState.lastSync = initialCache.lastSync;
   inMemoryState.selectedMonth = initialCache.selectedMonth || null;
+  saveCachedData({
+    ...initialCache,
+    allTasks: updatedTasks
+  });
 }
 
 function createWindow() {
