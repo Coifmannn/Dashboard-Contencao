@@ -317,6 +317,91 @@ function setupEventListeners() {
     });
   });
 
+  // --- GERENCIAMENTO DA EQUIPE ---
+  const teamManageList = document.getElementById('teamManageList');
+  const newMemberName = document.getElementById('newMemberName');
+  const newMemberCarga = document.getElementById('newMemberCarga');
+  const btnAddMember = document.getElementById('btnAddMember');
+
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const refreshAfterTeamChange = async () => {
+    await renderTeamManager();
+    await loadDashboard(monthSelect.value || null);
+  };
+
+  const renderTeamManager = async (forceAvatars = false) => {
+    if (!teamManageList) return;
+    if (forceAvatars || !window.avatarsLoadedFromDb) {
+      try {
+        const avatarsRes = await window.api.getAvatarsFromDb();
+        if (avatarsRes && avatarsRes.success) {
+          avatarsRes.data.forEach(a => { window.avatarsDict[a.analystName] = a.image; });
+          window.avatarsLoadedFromDb = true;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar avatares:', err);
+      }
+    }
+    const team = await window.api.getTeam();
+    teamManageList.innerHTML = '';
+    team.forEach(m => {
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);${m.enabled ? '' : 'opacity:0.6;'}`;
+      row.innerHTML = `
+        <img src="${getAvatarForAnalyst(m.name)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${escapeHtml(m.name)}</div>
+          <div style="font-size:12px;color:var(--text-dim);">${m.enabled ? 'Ativo na contenção' : 'Desabilitado (fora das metas)'} · ${m.cargaPadrao}h/dia</div>
+        </div>
+        <button class="btn-ghost-sm team-remove" style="cursor:pointer;color:var(--danger);border:1px solid var(--danger);">Remover</button>
+        <label class="switch" title="${m.enabled ? 'Desabilitar' : 'Habilitar'}">
+          <input type="checkbox" class="team-toggle" ${m.enabled ? 'checked' : ''}>
+          <span class="switch-slider"></span>
+        </label>`;
+      row.querySelector('.team-toggle').addEventListener('change', async (e) => {
+        const res = await window.api.setTeamMemberEnabled(m.name, e.target.checked);
+        if (!res.success) {
+          showToast(res.error, 'error');
+          e.target.checked = !e.target.checked;
+          return;
+        }
+        showToast(`${m.name} ${e.target.checked ? 'habilitado' : 'desabilitado'}.`, 'success');
+        await refreshAfterTeamChange();
+      });
+      const rm = row.querySelector('.team-remove');
+      if (rm) {
+        rm.addEventListener('click', async () => {
+          if (!confirm(`Remover ${m.name} da equipe?`)) return;
+          const res = await window.api.removeTeamMember(m.name);
+          if (!res.success) return showToast(res.error, 'error');
+          showToast(`${m.name} removido.`, 'info');
+          await refreshAfterTeamChange();
+        });
+      }
+      teamManageList.appendChild(row);
+    });
+  };
+
+  if (btnAddMember) {
+    btnAddMember.addEventListener('click', async () => {
+      const res = await window.api.addTeamMember(newMemberName.value, newMemberCarga.value);
+      if (!res.success) return showToast(res.error, 'error');
+      showToast('Funcionário adicionado! Sincronize para carregar as tarefas dele.', 'success');
+      newMemberName.value = '';
+      await refreshAfterTeamChange();
+    });
+  }
+  renderTeamManager().catch(err => console.error('Erro ao carregar equipe:', err));
+  window.api.onTeamUpdated(() => {
+    refreshAfterTeamChange().catch(err => console.error('Erro ao atualizar equipe:', err));
+    showToast('A equipe foi atualizada por outro usuário.', 'info');
+  });
+  const tabBtnSettings = document.getElementById('tabBtnSettings');
+  if (tabBtnSettings) {
+    tabBtnSettings.addEventListener('click', () => renderTeamManager(true).catch(err => console.error(err)));
+  }
+
   syncNowBtn.addEventListener('click', async () => {
     await triggerManualSync(monthSelect.value);
   });

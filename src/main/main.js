@@ -16,8 +16,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 const { loadTokens, clearTokens, startLoginFlow } = require('../services/salesforceAuth');
 const { fetchAllReports } = require('../services/salesforceReports');
-const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos } = require('../services/businessRules');
-const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase } = require('../services/firebase');
+const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos, setRoster, getRoster, cleanString } = require('../services/businessRules');
+const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase, saveTeamToFirebase, subscribeTeam } = require('../services/firebase');
 
 let mainWindow = null;
 let autoSyncInterval = null;
@@ -81,6 +81,62 @@ function saveCachedData(data) {
   } catch (err) {
     console.error('[Main] Erro ao salvar cache:', err.message);
   }
+}
+
+// --- Equipe (roster): persistida em user_settings.json sob a chave 'team' ---
+function readUserSettings() {
+  try {
+    ensureDataDir();
+    const file = path.join(getDataDir(), 'user_settings.json');
+    const fallback = path.join(LOCAL_DATA_DIR, 'user_settings.json');
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+    if (fs.existsSync(fallback)) return JSON.parse(fs.readFileSync(fallback, 'utf-8'));
+  } catch (err) {}
+  return {};
+}
+
+function writeUserSettings(updated) {
+  ensureDataDir();
+  const file = path.join(getDataDir(), 'user_settings.json');
+  fs.writeFileSync(file, JSON.stringify(updated, null, 2));
+  if (fs.existsSync(LOCAL_DATA_DIR)) {
+    fs.writeFileSync(path.join(LOCAL_DATA_DIR, 'user_settings.json'), JSON.stringify(updated, null, 2));
+  }
+}
+
+function applySavedRoster() {
+  const settings = readUserSettings();
+  if (settings && Array.isArray(settings.team) && settings.team.length > 0) {
+    // O roster salvo é a fonte da verdade (permite remover também os membros originais)
+    setRoster(settings.team);
+  }
+}
+applySavedRoster();
+
+// Salva a equipe localmente e no Firebase (compartilhado entre todos os usuários)
+function persistRoster() {
+  writeUserSettings({ ...readUserSettings(), team: getRoster() });
+  saveTeamToFirebase(getRoster())
+    .catch(err => console.error('[Firebase] Erro ao salvar equipe:', err.message));
+}
+
+let teamUnsubscribe = null;
+function startTeamSync() {
+  if (teamUnsubscribe) teamUnsubscribe();
+  teamUnsubscribe = subscribeTeam((remoteMembers) => {
+    if (!remoteMembers || remoteMembers.length === 0) {
+      // Banco ainda sem equipe: semeia com a lista local
+      saveTeamToFirebase(getRoster()).catch(err => console.error('[Firebase] Erro ao semear equipe:', err.message));
+      return;
+    }
+    const before = JSON.stringify(getRoster());
+    setRoster(remoteMembers);
+    if (JSON.stringify(getRoster()) === before) return; // sem mudança (eco da própria gravação)
+    writeUserSettings({ ...readUserSettings(), team: getRoster() });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('team:updated', getRoster());
+    }
+  });
 }
 
 let inMemoryState = {
@@ -481,6 +537,74 @@ function registerIpcHandlers() {
     }
   });
 
+  // Equipe: listar
+  ipcMain.handle('team:get', () => getRoster());
+
+  // Equipe: habilitar/desabilitar membro
+  ipcMain.handle('team:set-enabled', (event, name, enabled) => {
+    try {
+      const roster = getRoster();
+      const member = roster.find(m => m.name === name);
+      if (!member) return { success: false, error: 'Funcionário não encontrado.' };
+      if (!enabled && roster.filter(m => m.enabled).length <= 1 && member.enabled) {
+        return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
+      }
+      member.enabled = !!enabled;
+      setRoster(roster);
+      persistRoster();
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Equipe: adicionar novo funcionário
+  ipcMain.handle('team:add', (event, fullName, cargaPadrao) => {
+    try {
+      const name = String(fullName || '').trim().replace(/\s+/g, ' ');
+      if (name.length < 2) return { success: false, error: 'Informe o nome do funcionário.' };
+      const roster = getRoster();
+      if (roster.some(m => cleanString(m.name) === cleanString(name))) {
+        return { success: false, error: 'Este funcionário já existe.' };
+      }
+      // Chave de busca: primeiro nome; se já usado (ou contido em outro), usa o nome completo
+      const firstKey = cleanString(name.split(' ')[0]);
+      const conflict = roster.some(m => firstKey.includes(m.searchKey) || m.searchKey.includes(firstKey));
+      const searchKey = conflict ? cleanString(name) : firstKey;
+      roster.push({
+        name,
+        searchKey,
+        cargaPadrao: Number(cargaPadrao) > 0 ? Number(cargaPadrao) : 7.5,
+        enabled: true,
+        custom: true
+      });
+      setRoster(roster);
+      persistRoster();
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Equipe: remover funcionário adicionado manualmente
+  ipcMain.handle('team:remove', (event, name) => {
+    try {
+      const roster = getRoster();
+      const member = roster.find(m => m.name === name);
+      if (!member) return { success: false, error: 'Funcionário não encontrado.' };
+      if (roster.length <= 1) return { success: false, error: 'A equipe precisa ter ao menos um funcionário.' };
+      if (member.enabled && roster.filter(m => m.enabled).length <= 1) {
+        return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
+      }
+      const next = roster.filter(m => m.name !== name);
+      setRoster(next);
+      persistRoster();
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Configurações do usuário
   ipcMain.handle('system:get-settings', () => {
     try {
@@ -518,6 +642,7 @@ function registerIpcHandlers() {
 app.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
+  startTeamSync();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

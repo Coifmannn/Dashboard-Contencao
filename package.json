@@ -1,6 +1,6 @@
 {
   "name": "painel-contencao",
-  "version": "1.0.67",
+  "version": "1.0.69",
   "description": "Dashboard Desktop Nativo de Contenção & Metas Salesforce",
   "main": "src/main/main.js",
   "scripts": {

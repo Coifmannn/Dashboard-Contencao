@@ -25,6 +25,17 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('system:get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('system:save-settings', settings),
 
+  // Equipe
+  getTeam: () => ipcRenderer.invoke('team:get'),
+  setTeamMemberEnabled: (name, enabled) => ipcRenderer.invoke('team:set-enabled', name, enabled),
+  addTeamMember: (name, cargaPadrao) => ipcRenderer.invoke('team:add', name, cargaPadrao),
+  removeTeamMember: (name) => ipcRenderer.invoke('team:remove', name),
+  onTeamUpdated: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('team:updated', handler);
+    return () => ipcRenderer.removeListener('team:updated', handler);
+  },
+
   // Ouvintes de Eventos em Tempo Real
   onSyncStatus: (callback) => {
     const handler = (event, data) => callback(data);

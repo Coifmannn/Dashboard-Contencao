@@ -3,14 +3,40 @@
  * Replicado fielmente a partir de Codigo.gs e dashsalesforce.xlsx
  */
 
-const ACTIVE_ANALYSTS = [
-  { name: 'Anderson Almeida', searchKey: 'anderson', cargaPadrao: 7.5 },
-  { name: 'Gustavo Chagas', searchKey: 'gustavo', cargaPadrao: 7.5 },
-  { name: 'Mariane Oliveira', searchKey: 'mariane', cargaPadrao: 7.5 },
-  { name: 'Thiago Santos', searchKey: 'thiago', cargaPadrao: 7.5 },
-  { name: 'Felipe Wustemberg', searchKey: 'felipe', cargaPadrao: 7.5 },
-  { name: 'Heloisa Yamanaka', searchKey: 'helo', cargaPadrao: 7.5 }
+const DEFAULT_ANALYSTS = [
+  { name: 'Anderson Almeida', searchKey: 'anderson', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Gustavo Chagas', searchKey: 'gustavo', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Mariane Oliveira', searchKey: 'mariane', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Thiago Santos', searchKey: 'thiago', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Felipe Wustemberg', searchKey: 'felipe', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Heloisa Yamanaka', searchKey: 'helo', cargaPadrao: 7.5, enabled: true, custom: false }
 ];
+
+// Roster completo da equipe (ativos e desabilitados). Mutado in-place por setRoster().
+const ACTIVE_ANALYSTS = DEFAULT_ANALYSTS.map(a => ({ ...a }));
+
+/**
+ * Substitui o roster da equipe (ex.: carregado das configurações do usuário).
+ * Mantém a mesma referência do array para que todo o módulo enxergue a mudança.
+ */
+function setRoster(members) {
+  if (!Array.isArray(members) || members.length === 0) return;
+  const normalized = members
+    .filter(m => m && m.name && m.searchKey)
+    .map(m => ({
+      name: String(m.name).trim(),
+      searchKey: String(m.searchKey).trim(),
+      cargaPadrao: Number(m.cargaPadrao) > 0 ? Number(m.cargaPadrao) : 7.5,
+      enabled: m.enabled !== false,
+      custom: !!m.custom
+    }));
+  if (normalized.length === 0) return;
+  ACTIVE_ANALYSTS.splice(0, ACTIVE_ANALYSTS.length, ...normalized);
+}
+
+function getRoster() {
+  return ACTIVE_ANALYSTS.map(a => ({ ...a }));
+}
 
 const MONTH_NAMES_PT = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -560,6 +586,15 @@ function getPriorityCounts(tasks = []) {
  * Consolida todas as métricas para a Dashboard completa
  */
 function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
+  // Desabilitados (ex.: férias) ficam fora das metas, rankings e totais
+  const enabledAnalysts = ACTIVE_ANALYSTS.filter(a => a.enabled !== false);
+  const disabledNames = new Set(ACTIVE_ANALYSTS.filter(a => a.enabled === false).map(a => a.name));
+  const tasks = disabledNames.size > 0 ? allTasks.filter(t => !disabledNames.has(t.analista)) : allTasks;
+  return buildDashboardMetricsInternal(tasks, selectedMonth, enabledAnalysts);
+}
+
+// O parâmetro ACTIVE_ANALYSTS sombreia propositalmente a constante do módulo
+function buildDashboardMetricsInternal(allTasks = [], selectedMonth = null, ACTIVE_ANALYSTS = []) {
   const now = new Date();
   const defaultMonth = `${MONTH_NAMES_PT[now.getMonth()]} ${now.getFullYear()}`;
 
@@ -969,6 +1004,10 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
 
 module.exports = {
   ACTIVE_ANALYSTS,
+  DEFAULT_ANALYSTS,
+  setRoster,
+  getRoster,
+  cleanString,
   MONTH_NAMES_PT,
   PRIORIDADES_LIST,
   parseReportData,
