@@ -170,6 +170,20 @@ function subscribeTeam(onChange, onError) {
   });
 }
 
+/**
+ * Opções de administrador: documento config/admin com { passwordHash, passwordSalt, admins: [emails] }.
+ */
+async function getAdminConfigFromFirebase() {
+  if (!db) throw new Error("Firebase não foi inicializado corretamente.");
+  const snap = await getDoc(doc(db, 'config', 'admin'));
+  return snap.exists() ? snap.data() : {};
+}
+
+async function saveAdminConfigToFirebase(partial) {
+  if (!db) throw new Error("Firebase não foi inicializado corretamente.");
+  await setDoc(doc(db, 'config', 'admin'), { ...partial, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
 function cleanStringForId(str) {
   return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '_');
 }
@@ -181,5 +195,7 @@ module.exports = {
   getAvatarsFromFirebase,
   saveTeamToFirebase,
   getTeamFromFirebase,
-  subscribeTeam
+  subscribeTeam,
+  getAdminConfigFromFirebase,
+  saveAdminConfigToFirebase
 };

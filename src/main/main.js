@@ -17,7 +17,47 @@ if (process.env.NODE_ENV !== 'production') {
 const { loadTokens, clearTokens, startLoginFlow } = require('../services/salesforceAuth');
 const { fetchAllReports } = require('../services/salesforceReports');
 const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos, setRoster, getRoster, cleanString } = require('../services/businessRules');
-const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase, saveTeamToFirebase, subscribeTeam } = require('../services/firebase');
+const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase, saveTeamToFirebase, subscribeTeam, getAdminConfigFromFirebase, saveAdminConfigToFirebase } = require('../services/firebase');
+const { fetchSalesforceEndpoint } = require('../services/salesforceReports');
+const crypto = require('crypto');
+
+// --- Opções de administrador ---
+const MASTER_ADMIN_EMAIL = 'felipe.wustemberg@doutoresdaweb.com.br';
+let adminUnlocked = false; // liberado após informar a senha (vale até fechar o app / trocar de conta)
+
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+const hashPassword = (pwd, salt) => crypto.scryptSync(String(pwd), salt, 64).toString('hex');
+
+function currentUserEmail() {
+  const tokens = loadTokens();
+  return normEmail(tokens && tokens.user_email);
+}
+
+async function getAdminContext() {
+  const email = currentUserEmail();
+  let cfg = {};
+  try {
+    cfg = await getAdminConfigFromFirebase();
+    // Semeia o banco com o administrador principal e a lista de admins na primeira leitura
+    if (!cfg.masterEmail || !Array.isArray(cfg.admins)) {
+      const seed = { masterEmail: cfg.masterEmail || MASTER_ADMIN_EMAIL, admins: Array.isArray(cfg.admins) ? cfg.admins : [] };
+      await saveAdminConfigToFirebase(seed);
+      cfg = { ...cfg, ...seed };
+    }
+  } catch (err) { console.error('[Admin] Erro ao ler config:', err.message); }
+  const master = normEmail(cfg.masterEmail) || MASTER_ADMIN_EMAIL;
+  const admins = (Array.isArray(cfg.admins) ? cfg.admins : []).map(normEmail);
+  const isMaster = !!email && email === master;
+  const isAdmin = isMaster || (!!email && admins.includes(email));
+  return { email, cfg, master, admins, isMaster, isAdmin, hasPassword: !!cfg.passwordHash };
+}
+
+async function requireUnlockedAdmin() {
+  const ctx = await getAdminContext();
+  if (!ctx.isAdmin) return { ok: false, error: 'Acesso restrito a administradores.' };
+  if (!adminUnlocked) return { ok: false, error: 'Desbloqueie as opções de administrador com a senha.' };
+  return { ok: true, ctx };
+}
 
 let mainWindow = null;
 let autoSyncInterval = null;
@@ -323,6 +363,7 @@ function registerIpcHandlers() {
 
   // Logout
   ipcMain.handle('auth:logout', async () => {
+    adminUnlocked = false;
     clearTokens();
     return { success: true };
   });
@@ -330,6 +371,7 @@ function registerIpcHandlers() {
   // Trocar de conta (limpa anterior, faz login novo e sincroniza)
   ipcMain.handle('auth:switch-account', async () => {
     try {
+      adminUnlocked = false;
       clearTokens();
       const tokens = await startLoginFlow();
       // Dispara sincronização automática com a nova conta
@@ -537,12 +579,104 @@ function registerIpcHandlers() {
     }
   });
 
+  // --- Opções de administrador ---
+  ipcMain.handle('admin:get-state', async () => {
+    const ctx = await getAdminContext();
+    if (!ctx.isAdmin) adminUnlocked = false;
+    return { isAdmin: ctx.isAdmin, isMaster: ctx.isMaster, hasPassword: ctx.hasPassword, unlocked: ctx.isAdmin && adminUnlocked, email: ctx.email };
+  });
+
+  ipcMain.handle('admin:unlock', async (event, password) => {
+    try {
+      const ctx = await getAdminContext();
+      if (!ctx.isAdmin) return { success: false, error: 'Acesso restrito a administradores.' };
+      if (!ctx.hasPassword) return { success: false, error: 'Nenhuma senha definida ainda.', needsPassword: true };
+      const ok = hashPassword(password, ctx.cfg.passwordSalt) === ctx.cfg.passwordHash;
+      if (!ok) return { success: false, error: 'Senha incorreta.' };
+      adminUnlocked = true;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:lock', () => { adminUnlocked = false; return { success: true }; });
+
+  // Define/altera a senha (somente conta master; se já existe, exige a senha atual)
+  ipcMain.handle('admin:set-password', async (event, newPassword, currentPassword) => {
+    try {
+      const ctx = await getAdminContext();
+      if (!ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode definir a senha.' };
+      if (String(newPassword || '').length < 4) return { success: false, error: 'A senha deve ter ao menos 4 caracteres.' };
+      if (ctx.hasPassword && hashPassword(currentPassword, ctx.cfg.passwordSalt) !== ctx.cfg.passwordHash) {
+        return { success: false, error: 'Senha atual incorreta.' };
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      await saveAdminConfigToFirebase({ passwordSalt: salt, passwordHash: hashPassword(newPassword, salt) });
+      adminUnlocked = true;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:list', async () => {
+    const g = await requireUnlockedAdmin();
+    if (!g.ok) return { success: false, error: g.error };
+    return { success: true, master: g.ctx.master, admins: g.ctx.admins };
+  });
+
+  // Concede a mesma permissão a um e-mail cadastrado no Salesforce (somente master)
+  ipcMain.handle('admin:add', async (event, emailRaw) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      if (!g.ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode conceder acesso.' };
+      const email = normEmail(emailRaw);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, error: 'E-mail inválido.' };
+      if (email === g.ctx.master || g.ctx.admins.includes(email)) return { success: false, error: 'Este e-mail já é administrador.' };
+      let sfName = '';
+      try {
+        const safe = email.replace(/'/g, "\\'");
+        const q = encodeURIComponent(`SELECT Name, Email FROM User WHERE Email = '${safe}' AND IsActive = true LIMIT 1`);
+        const result = await fetchSalesforceEndpoint(`/services/data/v61.0/query?q=${q}`);
+        if (!result.records || result.records.length === 0) {
+          return { success: false, error: 'E-mail não encontrado entre os usuários ativos do Salesforce.' };
+        }
+        sfName = result.records[0].Name;
+      } catch (err) {
+        return { success: false, error: `Não foi possível validar no Salesforce: ${err.message}` };
+      }
+      const admins = [...g.ctx.admins, email];
+      await saveAdminConfigToFirebase({ admins });
+      return { success: true, admins, name: sfName };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:remove', async (event, emailRaw) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      if (!g.ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode remover acesso.' };
+      const email = normEmail(emailRaw);
+      const admins = g.ctx.admins.filter(a => a !== email);
+      await saveAdminConfigToFirebase({ admins });
+      return { success: true, admins };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Equipe: listar
   ipcMain.handle('team:get', () => getRoster());
 
   // Equipe: habilitar/desabilitar membro
-  ipcMain.handle('team:set-enabled', (event, name, enabled) => {
+  ipcMain.handle('team:set-enabled', async (event, name, enabled) => {
     try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
       const roster = getRoster();
       const member = roster.find(m => m.name === name);
       if (!member) return { success: false, error: 'Funcionário não encontrado.' };
@@ -559,8 +693,10 @@ function registerIpcHandlers() {
   });
 
   // Equipe: adicionar novo funcionário
-  ipcMain.handle('team:add', (event, fullName, cargaPadrao) => {
+  ipcMain.handle('team:add', async (event, fullName, cargaPadrao) => {
     try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
       const name = String(fullName || '').trim().replace(/\s+/g, ' ');
       if (name.length < 2) return { success: false, error: 'Informe o nome do funcionário.' };
       const roster = getRoster();
@@ -587,8 +723,10 @@ function registerIpcHandlers() {
   });
 
   // Equipe: remover funcionário adicionado manualmente
-  ipcMain.handle('team:remove', (event, name) => {
+  ipcMain.handle('team:remove', async (event, name) => {
     try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
       const roster = getRoster();
       const member = roster.find(m => m.name === name);
       if (!member) return { success: false, error: 'Funcionário não encontrado.' };

@@ -30,6 +30,15 @@ contextBridge.exposeInMainWorld('api', {
   setTeamMemberEnabled: (name, enabled) => ipcRenderer.invoke('team:set-enabled', name, enabled),
   addTeamMember: (name, cargaPadrao) => ipcRenderer.invoke('team:add', name, cargaPadrao),
   removeTeamMember: (name) => ipcRenderer.invoke('team:remove', name),
+
+  // Opções de administrador
+  adminGetState: () => ipcRenderer.invoke('admin:get-state'),
+  adminUnlock: (password) => ipcRenderer.invoke('admin:unlock', password),
+  adminLock: () => ipcRenderer.invoke('admin:lock'),
+  adminSetPassword: (newPassword, currentPassword) => ipcRenderer.invoke('admin:set-password', newPassword, currentPassword),
+  adminList: () => ipcRenderer.invoke('admin:list'),
+  adminAdd: (email) => ipcRenderer.invoke('admin:add', email),
+  adminRemove: (email) => ipcRenderer.invoke('admin:remove', email),
   onTeamUpdated: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('team:updated', handler);
