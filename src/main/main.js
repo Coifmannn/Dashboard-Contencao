@@ -154,10 +154,19 @@ function applySavedRoster() {
 applySavedRoster();
 
 // Salva a equipe localmente e no Firebase (compartilhado entre todos os usuários)
-function persistRoster() {
+// Grava primeiro no Firebase; se falhar, restaura `previous` e propaga o erro (nada fica só local).
+async function persistRoster(previous) {
+  try {
+    await saveTeamToFirebase(getRoster());
+  } catch (err) {
+    console.error('[Firebase] Erro ao salvar equipe:', err.code || '', err.message);
+    if (previous) setRoster(previous);
+    const denied = err.code === 'permission-denied';
+    throw new Error(denied
+      ? 'O Firebase recusou a gravação (permission-denied). Ajuste as regras do Firestore para config/team.'
+      : `Não foi possível salvar no Firebase: ${err.message}`);
+  }
   writeUserSettings({ ...readUserSettings(), team: getRoster() });
-  saveTeamToFirebase(getRoster())
-    .catch(err => console.error('[Firebase] Erro ao salvar equipe:', err.message));
 }
 
 let teamUnsubscribe = null;
@@ -683,9 +692,10 @@ function registerIpcHandlers() {
       if (!enabled && roster.filter(m => m.enabled).length <= 1 && member.enabled) {
         return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
       }
+      const previous = getRoster();
       member.enabled = !!enabled;
       setRoster(roster);
-      persistRoster();
+      await persistRoster(previous);
       return { success: true, team: getRoster() };
     } catch (err) {
       return { success: false, error: err.message };
@@ -700,6 +710,7 @@ function registerIpcHandlers() {
       const name = String(fullName || '').trim().replace(/\s+/g, ' ');
       if (name.length < 2) return { success: false, error: 'Informe o nome do funcionário.' };
       const roster = getRoster();
+      const previous = getRoster();
       if (roster.some(m => cleanString(m.name) === cleanString(name))) {
         return { success: false, error: 'Este funcionário já existe.' };
       }
@@ -715,7 +726,7 @@ function registerIpcHandlers() {
         custom: true
       });
       setRoster(roster);
-      persistRoster();
+      await persistRoster(previous);
       return { success: true, team: getRoster() };
     } catch (err) {
       return { success: false, error: err.message };
@@ -734,9 +745,10 @@ function registerIpcHandlers() {
       if (member.enabled && roster.filter(m => m.enabled).length <= 1) {
         return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
       }
+      const previous = getRoster();
       const next = roster.filter(m => m.name !== name);
       setRoster(next);
-      persistRoster();
+      await persistRoster(previous);
       return { success: true, team: getRoster() };
     } catch (err) {
       return { success: false, error: err.message };
