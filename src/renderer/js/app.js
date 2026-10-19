@@ -317,6 +317,232 @@ function setupEventListeners() {
     });
   });
 
+  // --- GERENCIAMENTO DA EQUIPE ---
+  const teamManageList = document.getElementById('teamManageList');
+  const newMemberName = document.getElementById('newMemberName');
+  const newMemberCarga = document.getElementById('newMemberCarga');
+  const btnAddMember = document.getElementById('btnAddMember');
+
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const refreshAfterTeamChange = async () => {
+    await renderTeamManager();
+    await loadDashboard(monthSelect.value || null);
+  };
+
+  const renderTeamManager = async (forceAvatars = false) => {
+    if (!teamManageList) return;
+    if (forceAvatars || !window.avatarsLoadedFromDb) {
+      try {
+        const avatarsRes = await window.api.getAvatarsFromDb();
+        if (avatarsRes && avatarsRes.success) {
+          avatarsRes.data.forEach(a => { window.avatarsDict[a.analystName] = a.image; });
+          window.avatarsLoadedFromDb = true;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar avatares:', err);
+      }
+    }
+    const team = await window.api.getTeam();
+    teamManageList.innerHTML = '';
+    team.forEach(m => {
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);${m.enabled ? '' : 'opacity:0.6;'}`;
+      row.innerHTML = `
+        <img src="${getAvatarForAnalyst(m.name)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${escapeHtml(m.name)}</div>
+          <div style="font-size:12px;color:var(--text-dim);">${m.enabled ? 'Ativo na contenção' : 'Desabilitado (fora das metas)'} · ${m.cargaPadrao}h/dia</div>
+        </div>
+        <button class="btn-ghost-sm team-remove" style="cursor:pointer;color:var(--danger);border:1px solid var(--danger);">Remover</button>
+        <label class="switch" title="${m.enabled ? 'Desabilitar' : 'Habilitar'}">
+          <input type="checkbox" class="team-toggle" ${m.enabled ? 'checked' : ''}>
+          <span class="switch-slider"></span>
+        </label>`;
+      row.querySelector('.team-toggle').addEventListener('change', async (e) => {
+        const res = await window.api.setTeamMemberEnabled(m.name, e.target.checked);
+        if (!res.success) {
+          showToast(res.error, 'error');
+          e.target.checked = !e.target.checked;
+          return;
+        }
+        showToast(`${m.name} ${e.target.checked ? 'habilitado' : 'desabilitado'}.`, 'success');
+        await refreshAfterTeamChange();
+      });
+      const rm = row.querySelector('.team-remove');
+      if (rm) {
+        rm.addEventListener('click', async () => {
+          if (!confirm(`Remover ${m.name} da equipe?`)) return;
+          const res = await window.api.removeTeamMember(m.name);
+          if (!res.success) return showToast(res.error, 'error');
+          showToast(`${m.name} removido.`, 'info');
+          await refreshAfterTeamChange();
+        });
+      }
+      teamManageList.appendChild(row);
+    });
+  };
+
+  if (btnAddMember) {
+    btnAddMember.addEventListener('click', async () => {
+      const res = await window.api.addTeamMember(newMemberName.value, newMemberCarga.value);
+      if (!res.success) return showToast(res.error, 'error');
+      showToast('Funcionário adicionado! Sincronize para carregar as tarefas dele.', 'success');
+      newMemberName.value = '';
+      await refreshAfterTeamChange();
+    });
+  }
+  renderTeamManager().catch(err => console.error('Erro ao carregar equipe:', err));
+  window.api.onTeamUpdated(() => {
+    refreshAfterTeamChange().catch(err => console.error('Erro ao atualizar equipe:', err));
+    showToast('A equipe foi atualizada por outro usuário.', 'info');
+  });
+  const tabBtnSettings = document.getElementById('tabBtnSettings');
+  if (tabBtnSettings) {
+    tabBtnSettings.addEventListener('click', () => {
+      refreshAdminUI().catch(err => console.error(err));
+    });
+  }
+
+  // --- OPÇÕES DE ADMINISTRADOR ---
+  const adminCard = document.getElementById('adminCard');
+  const adminHeader = document.getElementById('adminHeader');
+  const adminChevron = document.getElementById('adminChevron');
+  const adminLockPanel = document.getElementById('adminLockPanel');
+  const adminLockMsg = document.getElementById('adminLockMsg');
+  const adminPasswordInput = document.getElementById('adminPasswordInput');
+  const btnAdminUnlock = document.getElementById('btnAdminUnlock');
+  const adminContent = document.getElementById('adminContent');
+  const adminMasterOnly = document.getElementById('adminMasterOnly');
+  const adminListEl = document.getElementById('adminList');
+  let adminState = { isAdmin: false, isMaster: false, hasPassword: false, unlocked: false };
+  let adminExpanded = false;
+
+  const renderAdminPanels = async () => {
+    if (!adminCard) return;
+    adminCard.style.display = adminState.isAdmin ? '' : 'none';
+    if (!adminState.isAdmin) return;
+    adminChevron.style.transform = adminExpanded ? 'rotate(90deg)' : '';
+    const showBody = adminExpanded;
+    adminLockPanel.style.display = showBody && !adminState.unlocked ? '' : 'none';
+    adminContent.style.display = showBody && adminState.unlocked ? '' : 'none';
+    if (showBody && !adminState.unlocked) {
+      if (!adminState.hasPassword && !adminState.isMaster) {
+        adminLockMsg.textContent = 'A senha de administrador ainda não foi definida pelo administrador principal.';
+        btnAdminUnlock.disabled = true;
+      } else if (!adminState.hasPassword) {
+        adminLockMsg.textContent = 'Defina a senha de administrador (mín. 4 caracteres). Ela será exigida para abrir estas opções.';
+        btnAdminUnlock.textContent = 'Definir senha';
+        btnAdminUnlock.disabled = false;
+      } else {
+        adminLockMsg.textContent = 'Informe a senha de administrador para continuar.';
+        btnAdminUnlock.textContent = 'Desbloquear';
+        btnAdminUnlock.disabled = false;
+      }
+    }
+    if (showBody && adminState.unlocked) {
+      adminMasterOnly.style.display = adminState.isMaster ? '' : 'none';
+      await renderTeamManager(true);
+      if (adminState.isMaster) await renderAdminList();
+    }
+  };
+
+  const refreshAdminUI = async () => {
+    try {
+      adminState = await window.api.adminGetState();
+    } catch (err) {
+      adminState = { isAdmin: false, isMaster: false, hasPassword: false, unlocked: false };
+    }
+    await renderAdminPanels();
+  };
+  window.refreshAdminUI = refreshAdminUI;
+
+  const renderAdminList = async () => {
+    const res = await window.api.adminList();
+    if (!res.success) return;
+    adminListEl.innerHTML = '';
+    const rowStyle = 'display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);';
+    const master = document.createElement('div');
+    master.style.cssText = rowStyle;
+    master.innerHTML = `<div style="flex:1;font-weight:600;">${escapeHtml(res.master)}</div><span style="font-size:12px;color:var(--text-dim);">Principal</span>`;
+    adminListEl.appendChild(master);
+    res.admins.forEach(email => {
+      const row = document.createElement('div');
+      row.style.cssText = rowStyle;
+      row.innerHTML = `<div style="flex:1;">${escapeHtml(email)}</div><button class="btn-ghost-sm" style="cursor:pointer;color:var(--danger);border:1px solid var(--danger);">Remover</button>`;
+      row.querySelector('button').addEventListener('click', async () => {
+        if (!confirm(`Remover acesso de administrador de ${email}?`)) return;
+        const r = await window.api.adminRemove(email);
+        if (!r.success) return showToast(r.error, 'error');
+        showToast('Acesso removido.', 'info');
+        await renderAdminList();
+      });
+      adminListEl.appendChild(row);
+    });
+  };
+
+  if (adminHeader) {
+    adminHeader.addEventListener('click', async () => {
+      adminExpanded = !adminExpanded;
+      if (adminExpanded) adminState = await window.api.adminGetState();
+      else if (adminState.unlocked) { await window.api.adminLock(); adminState.unlocked = false; }
+      await renderAdminPanels();
+      if (adminExpanded && !adminState.unlocked && adminPasswordInput) adminPasswordInput.focus();
+    });
+  }
+
+  const submitAdminPassword = async () => {
+    const pwd = adminPasswordInput.value;
+    const res = adminState.hasPassword
+      ? await window.api.adminUnlock(pwd)
+      : await window.api.adminSetPassword(pwd, '');
+    if (!res.success) return showToast(res.error, 'error');
+    adminPasswordInput.value = '';
+    showToast(adminState.hasPassword ? 'Opções desbloqueadas.' : 'Senha definida!', 'success');
+    await refreshAdminUI();
+  };
+  if (btnAdminUnlock) btnAdminUnlock.addEventListener('click', submitAdminPassword);
+  if (adminPasswordInput) adminPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdminPassword(); });
+
+  const btnAdminLock = document.getElementById('btnAdminLock');
+  if (btnAdminLock) {
+    btnAdminLock.addEventListener('click', async () => {
+      await window.api.adminLock();
+      adminExpanded = false;
+      await refreshAdminUI();
+    });
+  }
+
+  const btnAdminChangePwd = document.getElementById('btnAdminChangePwd');
+  if (btnAdminChangePwd) {
+    btnAdminChangePwd.addEventListener('click', async () => {
+      const cur = document.getElementById('adminCurrentPwd');
+      const nw = document.getElementById('adminNewPwd');
+      const res = await window.api.adminSetPassword(nw.value, cur.value);
+      if (!res.success) return showToast(res.error, 'error');
+      cur.value = ''; nw.value = '';
+      showToast('Senha alterada com sucesso!', 'success');
+    });
+  }
+
+  const btnAddAdmin = document.getElementById('btnAddAdmin');
+  if (btnAddAdmin) {
+    btnAddAdmin.addEventListener('click', async () => {
+      const input = document.getElementById('newAdminEmail');
+      btnAddAdmin.disabled = true;
+      try {
+        const res = await window.api.adminAdd(input.value);
+        if (!res.success) return showToast(res.error, 'error');
+        showToast(`Acesso concedido a ${res.name || input.value}.`, 'success');
+        input.value = '';
+        await renderAdminList();
+      } finally {
+        btnAddAdmin.disabled = false;
+      }
+    });
+  }
+  refreshAdminUI().catch(err => console.error(err));
+
   syncNowBtn.addEventListener('click', async () => {
     await triggerManualSync(monthSelect.value);
   });
@@ -535,6 +761,7 @@ async function checkAuthStatus() {
       if (switchAccountBtn) switchAccountBtn.style.display = 'none';
       syncNowBtn.disabled = false;
     }
+    if (window.refreshAdminUI) window.refreshAdminUI().catch(() => {});
   } catch (err) {
     console.error('Erro ao verificar status:', err);
   }

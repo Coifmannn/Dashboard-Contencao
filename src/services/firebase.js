@@ -7,6 +7,8 @@ const {
   query, 
   orderBy, 
   setDoc, 
+  getDoc,
+  onSnapshot,
   doc 
 } = require('firebase/firestore');
 
@@ -137,6 +139,51 @@ async function getAvatarsFromFirebase() {
   }
 }
 
+/**
+ * Equipe compartilhada: documento único config/team com a lista de membros.
+ */
+async function saveTeamToFirebase(members) {
+  if (!db) throw new Error("Firebase não foi inicializado corretamente.");
+  await setDoc(doc(db, 'config', 'team'), {
+    members,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+async function getTeamFromFirebase() {
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'config', 'team'));
+  return snap.exists() ? (snap.data().members || null) : null;
+}
+
+/**
+ * Escuta mudanças da equipe em tempo real. Retorna a função de cancelamento.
+ * onChange(members|null) — null quando o documento ainda não existe.
+ */
+function subscribeTeam(onChange, onError) {
+  if (!db) return () => {};
+  return onSnapshot(doc(db, 'config', 'team'), (snap) => {
+    onChange(snap.exists() ? (snap.data().members || null) : null);
+  }, (err) => {
+    console.error('[Firebase] Erro no listener da equipe:', err);
+    if (onError) onError(err);
+  });
+}
+
+/**
+ * Opções de administrador: documento config/admin com { passwordHash, passwordSalt, admins: [emails] }.
+ */
+async function getAdminConfigFromFirebase() {
+  if (!db) throw new Error("Firebase não foi inicializado corretamente.");
+  const snap = await getDoc(doc(db, 'config', 'admin'));
+  return snap.exists() ? snap.data() : {};
+}
+
+async function saveAdminConfigToFirebase(partial) {
+  if (!db) throw new Error("Firebase não foi inicializado corretamente.");
+  await setDoc(doc(db, 'config', 'admin'), { ...partial, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
 function cleanStringForId(str) {
   return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '_');
 }
@@ -145,5 +192,10 @@ module.exports = {
   saveDashboardToFirebase,
   getDashboardsFromFirebase,
   saveAvatarToFirebase,
-  getAvatarsFromFirebase
+  getAvatarsFromFirebase,
+  saveTeamToFirebase,
+  getTeamFromFirebase,
+  subscribeTeam,
+  getAdminConfigFromFirebase,
+  saveAdminConfigToFirebase
 };

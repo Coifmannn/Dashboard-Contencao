@@ -598,6 +598,56 @@
           </div>
         </div>
 
+        <div class="glass-panel section-card" id="adminCard" style="margin-top: 20px; display: none;">
+          <div class="card-header" id="adminHeader" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+            <h2>🔒 Opções de Administrador</h2>
+            <span id="adminChevron" style="transition: transform .2s; color: var(--text-dim);">▶</span>
+          </div>
+
+          <!-- Desbloqueio por senha -->
+          <div id="adminLockPanel" style="display: none; padding: 20px;">
+            <p id="adminLockMsg" style="margin-bottom: 12px; font-size: 13px; color: var(--text-dim);">Informe a senha de administrador para continuar.</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <input type="password" id="adminPasswordInput" placeholder="Senha" autocomplete="off" style="flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+              <button class="btn-ghost-sm" id="btnAdminUnlock" style="cursor: pointer; background: var(--primary); color: #000; border: none; font-weight: 600;">Desbloquear</button>
+            </div>
+          </div>
+
+          <div id="adminContent" style="display: none; padding: 20px;">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+              <button class="btn-ghost-sm" id="btnAdminLock" style="cursor: pointer; border: 1px solid var(--border-color);">Bloquear</button>
+            </div>
+
+            <h3 style="margin-bottom: 10px; color: var(--text-muted);">Equipe</h3>
+            <p style="margin-bottom: 15px; font-size: 13px; color: var(--text-dim);">Desabilite um funcionário (ex.: férias) para tirá-lo das metas, rankings e totais da equipe. Os dados voltam ao reabilitar.</p>
+            <div id="teamManageList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-muted);">Adicionar novo funcionário</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+              <input type="text" id="newMemberName" placeholder="Nome completo (como no Salesforce)" style="flex: 1; min-width: 240px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+              <input type="number" id="newMemberCarga" value="7.5" step="0.5" min="0.5" title="Carga diária (horas)" style="width: 90px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+              <button class="btn-ghost-sm" id="btnAddMember" style="cursor: pointer; background: var(--primary); color: #000; border: none; font-weight: 600;">+ Adicionar</button>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; color: var(--text-dim);">O primeiro nome é usado para identificar as tarefas do funcionário. Sincronize após adicionar.</p>
+
+            <div id="adminMasterOnly" style="display: none; margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+              <h3 style="margin-bottom: 10px; color: var(--text-muted);">Senha de administrador</h3>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 25px;">
+                <input type="password" id="adminCurrentPwd" placeholder="Senha atual" autocomplete="off" style="flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+                <input type="password" id="adminNewPwd" placeholder="Nova senha" autocomplete="off" style="flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+                <button class="btn-ghost-sm" id="btnAdminChangePwd" style="cursor: pointer; background: var(--primary); color: #000; border: none; font-weight: 600;">Alterar senha</button>
+              </div>
+
+              <h3 style="margin-bottom: 10px; color: var(--text-muted);">Administradores</h3>
+              <p style="margin-bottom: 12px; font-size: 13px; color: var(--text-dim);">Conceda a mesma permissão a outra pessoa informando o e-mail cadastrado no Salesforce.</p>
+              <div id="adminList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="email" id="newAdminEmail" placeholder="email@empresa.com.br" style="flex: 1; min-width: 240px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-main, inherit);">
+                <button class="btn-ghost-sm" id="btnAddAdmin" style="cursor: pointer; background: var(--primary); color: #000; border: none; font-weight: 600;">+ Conceder acesso</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </section>
 
     </main>

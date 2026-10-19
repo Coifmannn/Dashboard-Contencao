@@ -16,8 +16,48 @@ if (process.env.NODE_ENV !== 'production') {
 
 const { loadTokens, clearTokens, startLoginFlow } = require('../services/salesforceAuth');
 const { fetchAllReports } = require('../services/salesforceReports');
-const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos } = require('../services/businessRules');
-const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase } = require('../services/firebase');
+const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos, setRoster, getRoster, cleanString } = require('../services/businessRules');
+const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase, saveTeamToFirebase, subscribeTeam, getAdminConfigFromFirebase, saveAdminConfigToFirebase } = require('../services/firebase');
+const { fetchSalesforceEndpoint } = require('../services/salesforceReports');
+const crypto = require('crypto');
+
+// --- Opções de administrador ---
+const MASTER_ADMIN_EMAIL = 'felipe.wustemberg@doutoresdaweb.com.br';
+let adminUnlocked = false; // liberado após informar a senha (vale até fechar o app / trocar de conta)
+
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+const hashPassword = (pwd, salt) => crypto.scryptSync(String(pwd), salt, 64).toString('hex');
+
+function currentUserEmail() {
+  const tokens = loadTokens();
+  return normEmail(tokens && tokens.user_email);
+}
+
+async function getAdminContext() {
+  const email = currentUserEmail();
+  let cfg = {};
+  try {
+    cfg = await getAdminConfigFromFirebase();
+    // Semeia o banco com o administrador principal e a lista de admins na primeira leitura
+    if (!cfg.masterEmail || !Array.isArray(cfg.admins)) {
+      const seed = { masterEmail: cfg.masterEmail || MASTER_ADMIN_EMAIL, admins: Array.isArray(cfg.admins) ? cfg.admins : [] };
+      await saveAdminConfigToFirebase(seed);
+      cfg = { ...cfg, ...seed };
+    }
+  } catch (err) { console.error('[Admin] Erro ao ler config:', err.message); }
+  const master = normEmail(cfg.masterEmail) || MASTER_ADMIN_EMAIL;
+  const admins = (Array.isArray(cfg.admins) ? cfg.admins : []).map(normEmail);
+  const isMaster = !!email && email === master;
+  const isAdmin = isMaster || (!!email && admins.includes(email));
+  return { email, cfg, master, admins, isMaster, isAdmin, hasPassword: !!cfg.passwordHash };
+}
+
+async function requireUnlockedAdmin() {
+  const ctx = await getAdminContext();
+  if (!ctx.isAdmin) return { ok: false, error: 'Acesso restrito a administradores.' };
+  if (!adminUnlocked) return { ok: false, error: 'Desbloqueie as opções de administrador com a senha.' };
+  return { ok: true, ctx };
+}
 
 let mainWindow = null;
 let autoSyncInterval = null;
@@ -81,6 +121,71 @@ function saveCachedData(data) {
   } catch (err) {
     console.error('[Main] Erro ao salvar cache:', err.message);
   }
+}
+
+// --- Equipe (roster): persistida em user_settings.json sob a chave 'team' ---
+function readUserSettings() {
+  try {
+    ensureDataDir();
+    const file = path.join(getDataDir(), 'user_settings.json');
+    const fallback = path.join(LOCAL_DATA_DIR, 'user_settings.json');
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+    if (fs.existsSync(fallback)) return JSON.parse(fs.readFileSync(fallback, 'utf-8'));
+  } catch (err) {}
+  return {};
+}
+
+function writeUserSettings(updated) {
+  ensureDataDir();
+  const file = path.join(getDataDir(), 'user_settings.json');
+  fs.writeFileSync(file, JSON.stringify(updated, null, 2));
+  if (fs.existsSync(LOCAL_DATA_DIR)) {
+    fs.writeFileSync(path.join(LOCAL_DATA_DIR, 'user_settings.json'), JSON.stringify(updated, null, 2));
+  }
+}
+
+function applySavedRoster() {
+  const settings = readUserSettings();
+  if (settings && Array.isArray(settings.team) && settings.team.length > 0) {
+    // O roster salvo é a fonte da verdade (permite remover também os membros originais)
+    setRoster(settings.team);
+  }
+}
+applySavedRoster();
+
+// Salva a equipe localmente e no Firebase (compartilhado entre todos os usuários)
+// Grava primeiro no Firebase; se falhar, restaura `previous` e propaga o erro (nada fica só local).
+async function persistRoster(previous) {
+  try {
+    await saveTeamToFirebase(getRoster());
+  } catch (err) {
+    console.error('[Firebase] Erro ao salvar equipe:', err.code || '', err.message);
+    if (previous) setRoster(previous);
+    const denied = err.code === 'permission-denied';
+    throw new Error(denied
+      ? 'O Firebase recusou a gravação (permission-denied). Ajuste as regras do Firestore para config/team.'
+      : `Não foi possível salvar no Firebase: ${err.message}`);
+  }
+  writeUserSettings({ ...readUserSettings(), team: getRoster() });
+}
+
+let teamUnsubscribe = null;
+function startTeamSync() {
+  if (teamUnsubscribe) teamUnsubscribe();
+  teamUnsubscribe = subscribeTeam((remoteMembers) => {
+    if (!remoteMembers || remoteMembers.length === 0) {
+      // Banco ainda sem equipe: semeia com a lista local
+      saveTeamToFirebase(getRoster()).catch(err => console.error('[Firebase] Erro ao semear equipe:', err.message));
+      return;
+    }
+    const before = JSON.stringify(getRoster());
+    setRoster(remoteMembers);
+    if (JSON.stringify(getRoster()) === before) return; // sem mudança (eco da própria gravação)
+    writeUserSettings({ ...readUserSettings(), team: getRoster() });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('team:updated', getRoster());
+    }
+  });
 }
 
 let inMemoryState = {
@@ -267,6 +372,7 @@ function registerIpcHandlers() {
 
   // Logout
   ipcMain.handle('auth:logout', async () => {
+    adminUnlocked = false;
     clearTokens();
     return { success: true };
   });
@@ -274,6 +380,7 @@ function registerIpcHandlers() {
   // Trocar de conta (limpa anterior, faz login novo e sincroniza)
   ipcMain.handle('auth:switch-account', async () => {
     try {
+      adminUnlocked = false;
       clearTokens();
       const tokens = await startLoginFlow();
       // Dispara sincronização automática com a nova conta
@@ -481,6 +588,173 @@ function registerIpcHandlers() {
     }
   });
 
+  // --- Opções de administrador ---
+  ipcMain.handle('admin:get-state', async () => {
+    const ctx = await getAdminContext();
+    if (!ctx.isAdmin) adminUnlocked = false;
+    return { isAdmin: ctx.isAdmin, isMaster: ctx.isMaster, hasPassword: ctx.hasPassword, unlocked: ctx.isAdmin && adminUnlocked, email: ctx.email };
+  });
+
+  ipcMain.handle('admin:unlock', async (event, password) => {
+    try {
+      const ctx = await getAdminContext();
+      if (!ctx.isAdmin) return { success: false, error: 'Acesso restrito a administradores.' };
+      if (!ctx.hasPassword) return { success: false, error: 'Nenhuma senha definida ainda.', needsPassword: true };
+      const ok = hashPassword(password, ctx.cfg.passwordSalt) === ctx.cfg.passwordHash;
+      if (!ok) return { success: false, error: 'Senha incorreta.' };
+      adminUnlocked = true;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:lock', () => { adminUnlocked = false; return { success: true }; });
+
+  // Define/altera a senha (somente conta master; se já existe, exige a senha atual)
+  ipcMain.handle('admin:set-password', async (event, newPassword, currentPassword) => {
+    try {
+      const ctx = await getAdminContext();
+      if (!ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode definir a senha.' };
+      if (String(newPassword || '').length < 4) return { success: false, error: 'A senha deve ter ao menos 4 caracteres.' };
+      if (ctx.hasPassword && hashPassword(currentPassword, ctx.cfg.passwordSalt) !== ctx.cfg.passwordHash) {
+        return { success: false, error: 'Senha atual incorreta.' };
+      }
+      const salt = crypto.randomBytes(16).toString('hex');
+      await saveAdminConfigToFirebase({ passwordSalt: salt, passwordHash: hashPassword(newPassword, salt) });
+      adminUnlocked = true;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:list', async () => {
+    const g = await requireUnlockedAdmin();
+    if (!g.ok) return { success: false, error: g.error };
+    return { success: true, master: g.ctx.master, admins: g.ctx.admins };
+  });
+
+  // Concede a mesma permissão a um e-mail cadastrado no Salesforce (somente master)
+  ipcMain.handle('admin:add', async (event, emailRaw) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      if (!g.ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode conceder acesso.' };
+      const email = normEmail(emailRaw);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, error: 'E-mail inválido.' };
+      if (email === g.ctx.master || g.ctx.admins.includes(email)) return { success: false, error: 'Este e-mail já é administrador.' };
+      let sfName = '';
+      try {
+        const safe = email.replace(/'/g, "\\'");
+        const q = encodeURIComponent(`SELECT Name, Email FROM User WHERE Email = '${safe}' AND IsActive = true LIMIT 1`);
+        const result = await fetchSalesforceEndpoint(`/services/data/v61.0/query?q=${q}`);
+        if (!result.records || result.records.length === 0) {
+          return { success: false, error: 'E-mail não encontrado entre os usuários ativos do Salesforce.' };
+        }
+        sfName = result.records[0].Name;
+      } catch (err) {
+        return { success: false, error: `Não foi possível validar no Salesforce: ${err.message}` };
+      }
+      const admins = [...g.ctx.admins, email];
+      await saveAdminConfigToFirebase({ admins });
+      return { success: true, admins, name: sfName };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('admin:remove', async (event, emailRaw) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      if (!g.ctx.isMaster) return { success: false, error: 'Somente o administrador principal pode remover acesso.' };
+      const email = normEmail(emailRaw);
+      const admins = g.ctx.admins.filter(a => a !== email);
+      await saveAdminConfigToFirebase({ admins });
+      return { success: true, admins };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Equipe: listar
+  ipcMain.handle('team:get', () => getRoster());
+
+  // Equipe: habilitar/desabilitar membro
+  ipcMain.handle('team:set-enabled', async (event, name, enabled) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      const roster = getRoster();
+      const member = roster.find(m => m.name === name);
+      if (!member) return { success: false, error: 'Funcionário não encontrado.' };
+      if (!enabled && roster.filter(m => m.enabled).length <= 1 && member.enabled) {
+        return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
+      }
+      const previous = getRoster();
+      member.enabled = !!enabled;
+      setRoster(roster);
+      await persistRoster(previous);
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Equipe: adicionar novo funcionário
+  ipcMain.handle('team:add', async (event, fullName, cargaPadrao) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      const name = String(fullName || '').trim().replace(/\s+/g, ' ');
+      if (name.length < 2) return { success: false, error: 'Informe o nome do funcionário.' };
+      const roster = getRoster();
+      const previous = getRoster();
+      if (roster.some(m => cleanString(m.name) === cleanString(name))) {
+        return { success: false, error: 'Este funcionário já existe.' };
+      }
+      // Chave de busca: primeiro nome; se já usado (ou contido em outro), usa o nome completo
+      const firstKey = cleanString(name.split(' ')[0]);
+      const conflict = roster.some(m => firstKey.includes(m.searchKey) || m.searchKey.includes(firstKey));
+      const searchKey = conflict ? cleanString(name) : firstKey;
+      roster.push({
+        name,
+        searchKey,
+        cargaPadrao: Number(cargaPadrao) > 0 ? Number(cargaPadrao) : 7.5,
+        enabled: true,
+        custom: true
+      });
+      setRoster(roster);
+      await persistRoster(previous);
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Equipe: remover funcionário adicionado manualmente
+  ipcMain.handle('team:remove', async (event, name) => {
+    try {
+      const g = await requireUnlockedAdmin();
+      if (!g.ok) return { success: false, error: g.error };
+      const roster = getRoster();
+      const member = roster.find(m => m.name === name);
+      if (!member) return { success: false, error: 'Funcionário não encontrado.' };
+      if (roster.length <= 1) return { success: false, error: 'A equipe precisa ter ao menos um funcionário.' };
+      if (member.enabled && roster.filter(m => m.enabled).length <= 1) {
+        return { success: false, error: 'Ao menos um funcionário deve permanecer habilitado.' };
+      }
+      const previous = getRoster();
+      const next = roster.filter(m => m.name !== name);
+      setRoster(next);
+      await persistRoster(previous);
+      return { success: true, team: getRoster() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Configurações do usuário
   ipcMain.handle('system:get-settings', () => {
     try {
@@ -518,6 +792,7 @@ function registerIpcHandlers() {
 app.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
+  startTeamSync();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
