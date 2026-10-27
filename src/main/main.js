@@ -793,6 +793,7 @@ app.whenReady().then(() => {
   registerIpcHandlers();
   createWindow();
   startTeamSync();
+  require('../services/updater').init(() => mainWindow);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

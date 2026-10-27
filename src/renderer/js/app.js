@@ -1148,7 +1148,7 @@ function renderTabelaPrioridades(data) {
   const list = data.prioridadesList || [
     'CRIAÇÃO DE BLOG', 'ERRO BLOG', 'BLOG',
     'CRIAÇÃO DE TOKEN', 'ALTERAR TOKEN', 'API/TOKEN',
-    'ERRO SIG', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'
+    'ERRO SIG', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT', 'PLANO DE AÇÃO'
   ];
 
   tabelaPrioridadesBody.innerHTML = '';

@@ -1,13 +1,14 @@
 {
   "name": "painel-contencao",
-  "version": "2.0.24",
+  "version": "2.0.25",
   "description": "Dashboard Desktop Nativo de Contenção & Metas Salesforce",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "dist": "electron-builder --win",
-    "build-dir": "electron-builder --win --dir"
+    "build-dir": "electron-builder --win --dir",
+    "release": "node scripts/release.js"
   },
   "keywords": [
     "electron",
@@ -24,15 +25,21 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.ico",
+      "artifactName": "Painel-Contencao-Setup-${version}.${ext}"
     },
     "nsis": {
+      "differentialPackage": false,
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Painel de Contenção"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://www.mpitemporario.com.br/projetos/DashContencao-releases/"
     },
     "forceCodeSigning": false,
     "asar": false,
@@ -58,6 +65,7 @@
   },
   "dependencies": {
     "dotenv": "^18.0.5",
+    "electron-updater": "^6.8.9",
     "firebase": "^9.14.0"
   }
 }

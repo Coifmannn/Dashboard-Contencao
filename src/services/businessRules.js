@@ -116,8 +116,10 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
   }
 
   if (isNaN(h) || h === 0) {
-    if (sStr.includes('chatbot') || tpStr.includes('chatbot')) {
-      h = 2.0; p = 2.0;
+    if (sStr.includes('plano de acao') || tpStr.includes('plano de acao')) {
+      h = 0.5; p = 0.5;
+    } else if (sStr.includes('chatbot') || tpStr.includes('chatbot')) {
+      h = 3.0; p = 3.0;
     } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog')) {
       h = 5.0; p = 5.0;
     } else if (sStr.includes('erro blog') || sStr.includes('erro no blog')) {
@@ -164,6 +166,8 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
 function classifyPriorityCategory(subject, rawTipo) {
   const sStr = cleanString(removeDomain(subject));
   const tpStr = cleanString(removeDomain(rawTipo));
+
+  if (sStr.includes('plano de acao') || tpStr.includes('plano de acao')) return 'PLANO DE AÇÃO';
 
   if (sStr.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
 
@@ -568,7 +572,8 @@ const PRIORIDADES_LIST = [
   'BAIXA',
   'BACKUP',
   'T. DE BANCO',
-  'CHATBOT'
+  'CHATBOT',
+  'PLANO DE AÇÃO'
 ];
 
 function getPriorityCounts(tasks = []) {
