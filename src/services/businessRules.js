@@ -228,6 +228,14 @@ function getWeekOfMonth(dateStr) {
   // Ajustando para que a semana comece na Segunda-feira (0 = Segunda, 6 = Domingo)
   let adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
   
+  // Se o mês começa em sábado/domingo, esses dias fazem parte da Semana 1
+  // junto com a primeira semana útil (que começa na primeira segunda-feira).
+  if (adjustedFirstDay >= 5) {
+    const firstMonday = 8 - adjustedFirstDay;
+    const w = dayNumber < firstMonday ? 1 : Math.floor((dayNumber - firstMonday) / 7) + 1;
+    return `Semana ${w}`;
+  }
+
   const weekNum = Math.ceil((dayNumber + adjustedFirstDay) / 7);
   return `Semana ${weekNum}`;
 }
@@ -324,9 +332,6 @@ function getMonthWorkdays(year, monthIndex) {
     }
   }
 
-  if (isCurrentMonth && currentWorkday <= 2) {
-    currentWorkday = 1;
-  }
   if (!isCurrentMonth && !isPastMonth) {
     currentWorkday = 0;
   }
@@ -942,6 +947,23 @@ function buildDashboardMetricsInternal(allTasks = [], selectedMonth = null, ACTI
       totalMensal
     };
   });
+
+  // Linha "Não Alocados": tarefas concluídas sem analista ativo no roster
+  const activeNames = new Set(ACTIVE_ANALYSTS.map(a => a.name));
+  const naoAlocadasTasks = monthTasks.filter(t => !activeNames.has(t.analista));
+  if (naoAlocadasTasks.length > 0) {
+    const semanasNA = {};
+    semanasList.forEach(s => semanasNA[s] = 0);
+    naoAlocadasTasks.forEach(t => {
+      const s = t.semana || 'Semana 1';
+      if (semanasNA[s] !== undefined) semanasNA[s]++;
+    });
+    tabelaTarefasSemanais.push({
+      analista: 'Não Alocados',
+      ...semanasNA,
+      totalMensal: Object.values(semanasNA).reduce((a, b) => a + b, 0)
+    });
+  }
 
   const totalTarefasSemanaisRow = {
     analista: 'TOTAL GERAL DE TAREFAS',
