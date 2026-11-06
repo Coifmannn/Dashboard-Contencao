@@ -25,6 +25,17 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('system:get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('system:save-settings', settings),
 
+  // Atualizações do app
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:get-status'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  retryUpdate: () => ipcRenderer.invoke('updater:retry'),
+  dismissUpdate: () => ipcRenderer.invoke('updater:dismiss'),
+  onUpdaterStatus: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  },
+
   // Equipe
   getTeam: () => ipcRenderer.invoke('team:get'),
   setTeamMemberEnabled: (name, enabled) => ipcRenderer.invoke('team:set-enabled', name, enabled),

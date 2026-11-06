@@ -101,7 +101,18 @@ function mapAnalystName(rawName) {
   return rawName.trim();
 }
 
-function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework) {
+function isCancelledStatus(status) {
+  return cleanString(status || '').includes('cancel');
+}
+
+function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework, status) {
+  const result = calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework);
+  // Tarefas canceladas não contabilizam nada (horas e pontos)
+  if (isCancelledStatus(status)) { result.horas = 0; result.pontos = 0; }
+  return result;
+}
+
+function calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework) {
   const tIdStr = String(taskId || '');
   const cleanSubjectOrig = cleanString(subject);
   const sStr = cleanString(removeDomain(subject));
@@ -480,7 +491,9 @@ function parseReportData(rawReport, category = 'concluidas') {
       const cleanSt = cleanString(status);
       let finalCategory = category;
 
-      if (cleanSt.includes('abert') || cleanSt.includes('andamento') || cleanSt.includes('progress') || cleanSt.includes('aguard') || cleanSt.includes('pendent') || cleanSt.includes('novo') || cleanSt.includes('nova')) {
+      if (isCancelledStatus(status)) {
+        finalCategory = 'cancelada';
+      } else if (cleanSt.includes('abert') || cleanSt.includes('andamento') || cleanSt.includes('progress') || cleanSt.includes('aguard') || cleanSt.includes('pendent') || cleanSt.includes('novo') || cleanSt.includes('nova')) {
         finalCategory = 'fila';
       } else if (cleanSt.includes('conclu') || cleanSt.includes('fechad') || cleanSt.includes('finaliz') || cleanSt.includes('realiz') || cleanSt.includes('entreg') || cleanSt.includes('done')) {
         finalCategory = 'concluidas';
@@ -536,10 +549,10 @@ function parseReportData(rawReport, category = 'concluidas') {
       const rawH = cols.horas !== -1 && cells[cols.horas] ? cells[cols.horas].value : 0;
       const rawP = cols.pontos !== -1 && cells[cols.pontos] ? cells[cols.pontos].value : 0;
 
-      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework);
+      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework, status);
       const priorityCategory = classifyPriorityCategory(subject, tipo);
       const week = getWeekOfMonth(dataEntrega || dataVencimento);
-      const monthYear = finalCategory === 'concluidas' ? parseMonthYear(dataEntrega || dataVencimento) : 'Outros';
+      const monthYear = finalCategory === 'concluidas' ? parseMonthYear(dataEntrega || dataVencimento) : (finalCategory === 'cancelada' ? 'Cancelada' : 'Outros');
 
       tasksList.push({
         taskId: taskId || `SF-${Math.random().toString(36).substring(2, 9)}`,

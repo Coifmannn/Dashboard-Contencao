@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -545,31 +545,7 @@
           <div style="padding: 20px;">
             <label style="display: block; margin-bottom: 15px; font-weight: 600; color: var(--text-muted);">Tema do Sistema</label>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;" id="themeSelectorContainer">
-              
-              <!-- Tema Padrão -->
-              <div class="theme-option active" data-theme="default" style="cursor: pointer; border: 2px solid var(--primary); border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #0b1120; transition: 0.2s;">
-                <div style="height: 40px; background: #141c2f; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center;">
-                  <span style="color: #38bdf8;">✦</span>
-                </div>
-                <span style="font-size: 13px; color: #f8fafc; font-weight: 500;">Padrão</span>
-              </div>
-
-              <!-- Tema Dracula -->
-              <div class="theme-option" data-theme="dracula" style="cursor: pointer; border: 2px solid transparent; border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #282a36; transition: 0.2s;">
-                <div style="height: 40px; background: #44475a; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center;">
-                  <span style="color: #ff79c6;">✦</span>
-                </div>
-                <span style="font-size: 13px; color: #f8f8f2; font-weight: 500;">Drácula</span>
-              </div>
-
-              <!-- Tema Light -->
-              <div class="theme-option" data-theme="light" style="cursor: pointer; border: 2px solid transparent; border-radius: 8px; padding: 10px; width: 120px; text-align: center; background: #f1f5f9; transition: 0.2s;">
-                <div style="height: 40px; background: #ffffff; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #cbd5e1;">
-                  <span style="color: #0ea5e9;">✦</span>
-                </div>
-                <span style="font-size: 13px; color: #0f172a; font-weight: 500;">Claro</span>
-              </div>
-
+              <!-- Cards de tema gerados em app.js (THEMES) -->
             </div>
           </div>
         </div>
@@ -666,6 +642,20 @@
         <div class="podium" id="podiumModalContainer" style="height: 450px;">
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal de atualização do app -->
+  <div id="updateModal" class="update-modal" hidden>
+    <div class="update-card glass-panel">
+      <div class="update-icon" id="updateIcon">⬇</div>
+      <h3 id="updateTitle">Atualização disponível</h3>
+      <p id="updateText" class="update-text"></p>
+      <div class="update-progress" id="updateProgressWrap">
+        <div class="update-progress-bar" id="updateProgressBar"></div>
+      </div>
+      <div class="update-percent" id="updatePercent"></div>
+      <div class="update-actions" id="updateActions"></div>
     </div>
   </div>
 

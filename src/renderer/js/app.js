@@ -200,6 +200,34 @@ function setupEventListeners() {
     });
   }
 
+  // Para adicionar um tema: crie o bloco [data-theme="id"] no style.css e uma linha aqui.
+  const THEMES = [
+    { id: 'default',   label: 'Padrão',     bg: '#0b1120', card: '#141c2f', accent: '#38bdf8', text: '#f8fafc' },
+    { id: 'dracula',   label: 'Drácula',    bg: '#282a36', card: '#44475a', accent: '#ff79c6', text: '#f8f8f2' },
+    { id: 'light',     label: 'Claro',      bg: '#f1f5f9', card: '#ffffff', accent: '#0ea5e9', text: '#0f172a' },
+    { id: 'neon',      label: 'Neon',       bg: '#000000', card: '#111111', accent: '#39ff14', text: '#ffffff' },
+    { id: 'nord',      label: 'Nord',       bg: '#2e3440', card: '#3b4252', accent: '#88c0d0', text: '#eceff4' },
+    { id: 'midnight',  label: 'Midnight',   bg: '#0a0a1f', card: '#15153a', accent: '#818cf8', text: '#eef0ff' },
+    { id: 'solarized', label: 'Solarized',  bg: '#002b36', card: '#073642', accent: '#2aa198', text: '#fdf6e3' },
+    { id: 'floresta',  label: 'Floresta',   bg: '#0b1410', card: '#12231a', accent: '#4ade80', text: '#ecfdf3' },
+    { id: 'sunset',    label: 'Sunset',     bg: '#1a0f1f', card: '#2c1838', accent: '#fb923c', text: '#fff1f2' },
+    { id: 'contraste', label: 'Alto contraste', bg: '#000000', card: '#0a0a0a', accent: '#ffd400', text: '#ffffff' }
+  ];
+  const themeContainer = document.getElementById('themeSelectorContainer');
+  themeContainer.innerHTML = '';
+  THEMES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'theme-option';
+    el.dataset.theme = t.id;
+    el.style.cssText = `cursor:pointer; border:2px solid transparent; border-radius:8px; padding:10px; width:120px; text-align:center; background:${t.bg}; transition:0.2s;`;
+    el.innerHTML = `
+      <div style="height:40px; background:${t.card}; border-radius:4px; margin-bottom:8px; display:flex; align-items:center; justify-content:center; border:1px solid ${t.accent}55;">
+        <span style="color:${t.accent};">✦</span>
+      </div>
+      <span style="font-size:13px; color:${t.text}; font-weight:500;">${t.label}</span>`;
+    themeContainer.appendChild(el);
+  });
+
   const themeOptions = document.querySelectorAll('.theme-option');
   let currentTheme = localStorage.getItem('dashTheme') || 'default';
   
@@ -1372,7 +1400,7 @@ function renderTasksTable(tasks) {
       </td>
       <td class="num-cell font-bold" style="color: #60a5fa;">${(t.horas || 0).toFixed(1)}h</td>
       <td class="num-cell">
-        <span class="status-pill ${isFila ? 'abaixo' : 'acima'}">${isFila ? 'Fila / Aberto' : 'Concluída'}</span>
+        <span class="status-pill ${t.category === 'cancelada' ? 'abaixo' : (isFila ? 'abaixo' : 'acima')}">${t.category === 'cancelada' ? 'Cancelada' : (isFila ? 'Fila / Aberto' : 'Concluída')}</span>
       </td>
       <td class="num-cell" style="font-size: 12px; color: ${isOverdue ? '#ef4444' : '#94a3b8'}; ${isOverdue ? 'font-weight: 700;' : ''}">
         ${formattedDate}
@@ -1504,3 +1532,81 @@ function debounce(func, wait) {
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
 }
+
+
+// --- Modal de atualização do app ---
+(function initUpdateModal() {
+  const modal = document.getElementById('updateModal');
+  if (!modal || !window.api) return;
+  const icon = document.getElementById('updateIcon');
+  const title = document.getElementById('updateTitle');
+  const text = document.getElementById('updateText');
+  const progressWrap = document.getElementById('updateProgressWrap');
+  const bar = document.getElementById('updateProgressBar');
+  const percent = document.getElementById('updatePercent');
+  const actions = document.getElementById('updateActions');
+
+  const setActions = (buttons) => {
+    actions.innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.textContent = b.label;
+      if (b.primary) el.className = 'primary';
+      el.addEventListener('click', b.onClick);
+      actions.appendChild(el);
+    });
+  };
+
+  const render = (s) => {
+    if (!s || s.status === 'idle' || s.dismissed) { modal.hidden = true; return; }
+    modal.hidden = false;
+    const v = s.version ? ` ${s.version}` : '';
+    icon.classList.remove('spin');
+
+    if (s.status === 'downloading' || s.status === 'progress') {
+      const pct = s.percent || 0;
+      icon.textContent = '⬇';
+      icon.classList.add('spin');
+      title.textContent = `Baixando versão${v}`;
+      text.textContent = 'Você pode continuar usando o painel enquanto isso.';
+      progressWrap.style.display = '';
+      bar.style.width = pct + '%';
+      percent.textContent = pct + '%';
+      setActions([]);
+    } else if (s.status === 'ready') {
+      icon.textContent = '✓';
+      title.textContent = `Versão${v} pronta`;
+      text.textContent = 'Reinicie para aplicar a atualização. Se escolher "Depois", ela será instalada quando você fechar o app.';
+      progressWrap.style.display = 'none';
+      percent.textContent = '';
+      setActions([
+        { label: 'Depois', onClick: () => { modal.hidden = true; window.api.dismissUpdate(); } },
+        { label: 'Atualizar agora', primary: true, onClick: () => window.api.installUpdate() }
+      ]);
+    } else if (s.status === 'error') {
+      icon.textContent = '!';
+      title.textContent = 'Falha na atualização';
+      text.textContent = s.message || 'Não foi possível baixar a atualização.';
+      progressWrap.style.display = 'none';
+      percent.textContent = '';
+      setActions([
+        { label: 'Fechar', onClick: () => { modal.hidden = true; } },
+        { label: 'Tentar de novo', primary: true, onClick: () => window.api.retryUpdate() }
+      ]);
+    }
+  };
+
+  window.api.onUpdaterStatus(render);
+  window.api.getUpdaterStatus().then(render).catch(() => {});
+
+  // Pré-visualização para desenvolvimento: no DevTools, rode previewUpdate('progress'|'ready'|'error'|'off')
+  window.previewUpdate = (state = 'progress') => {
+    const states = {
+      progress: { status: 'progress', version: '9.9.9', percent: 42 },
+      ready: { status: 'ready', version: '9.9.9' },
+      error: { status: 'error', version: '9.9.9', message: 'Sem conexão com o servidor de atualização.' },
+      off: { status: 'idle' }
+    };
+    render(states[state] || states.progress);
+  };
+})();
