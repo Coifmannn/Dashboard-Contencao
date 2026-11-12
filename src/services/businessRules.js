@@ -109,8 +109,8 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
   const result = calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework);
   // Tarefas canceladas não contabilizam nada (horas e pontos)
   if (isCancelledStatus(status)) { result.horas = 0; result.pontos = 0; }
-  // Troca de banco (T. DE BANCO) não vale horas nem pontos
-  if (classifyPriorityCategory(subject, rawTipo) === 'T. DE BANCO') { result.horas = 0; result.pontos = 0; }
+  // Troca de banco (T. DE BANCO) vale 30min e 0.5pts (exceto se cancelada)
+  if (!isCancelledStatus(status) && classifyPriorityCategory(subject, rawTipo) === 'T. DE BANCO') { result.horas = 0.5; result.pontos = 0.5; }
   return result;
 }
 
@@ -150,7 +150,7 @@ function calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHor
     } else if (sStr.includes('erro sig') || sStr.includes('erro no sig')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('banco') || sStr.includes('t.') || tpStr.includes('t.')) {
-      h = 0.0; p = 0.0;
+      h = 0.5; p = 0.5;
     } else if (tpStr.includes('baixa') || tpStr.includes('facil') || sStr.includes('baixa') || sStr.includes('facil')) {
       h = 4.0; p = 4.0;
     } else if (tpStr.includes('med') || sStr.includes('med')) {
