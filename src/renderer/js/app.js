@@ -200,6 +200,34 @@ function setupEventListeners() {
     });
   }
 
+  // Para adicionar um tema: crie o bloco [data-theme="id"] no style.css e uma linha aqui.
+  const THEMES = [
+    { id: 'default',   label: 'Padrão',     bg: '#0b1120', card: '#141c2f', accent: '#38bdf8', text: '#f8fafc' },
+    { id: 'dracula',   label: 'Drácula',    bg: '#282a36', card: '#44475a', accent: '#ff79c6', text: '#f8f8f2' },
+    { id: 'light',     label: 'Claro',      bg: '#f1f5f9', card: '#ffffff', accent: '#0ea5e9', text: '#0f172a' },
+    { id: 'neon',      label: 'Neon',       bg: '#000000', card: '#111111', accent: '#39ff14', text: '#ffffff' },
+    { id: 'nord',      label: 'Nord',       bg: '#2e3440', card: '#3b4252', accent: '#88c0d0', text: '#eceff4' },
+    { id: 'midnight',  label: 'Midnight',   bg: '#0a0a1f', card: '#15153a', accent: '#818cf8', text: '#eef0ff' },
+    { id: 'solarized', label: 'Solarized',  bg: '#002b36', card: '#073642', accent: '#2aa198', text: '#fdf6e3' },
+    { id: 'floresta',  label: 'Floresta',   bg: '#0b1410', card: '#12231a', accent: '#4ade80', text: '#ecfdf3' },
+    { id: 'sunset',    label: 'Sunset',     bg: '#1a0f1f', card: '#2c1838', accent: '#fb923c', text: '#fff1f2' },
+    { id: 'contraste', label: 'Alto contraste', bg: '#000000', card: '#0a0a0a', accent: '#ffd400', text: '#ffffff' }
+  ];
+  const themeContainer = document.getElementById('themeSelectorContainer');
+  themeContainer.innerHTML = '';
+  THEMES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'theme-option';
+    el.dataset.theme = t.id;
+    el.style.cssText = `cursor:pointer; border:2px solid transparent; border-radius:8px; padding:10px; width:120px; text-align:center; background:${t.bg}; transition:0.2s;`;
+    el.innerHTML = `
+      <div style="height:40px; background:${t.card}; border-radius:4px; margin-bottom:8px; display:flex; align-items:center; justify-content:center; border:1px solid ${t.accent}55;">
+        <span style="color:${t.accent};">✦</span>
+      </div>
+      <span style="font-size:13px; color:${t.text}; font-weight:500;">${t.label}</span>`;
+    themeContainer.appendChild(el);
+  });
+
   const themeOptions = document.querySelectorAll('.theme-option');
   let currentTheme = localStorage.getItem('dashTheme') || 'default';
   
@@ -316,6 +344,232 @@ function setupEventListeners() {
       }
     });
   });
+
+  // --- GERENCIAMENTO DA EQUIPE ---
+  const teamManageList = document.getElementById('teamManageList');
+  const newMemberName = document.getElementById('newMemberName');
+  const newMemberCarga = document.getElementById('newMemberCarga');
+  const btnAddMember = document.getElementById('btnAddMember');
+
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const refreshAfterTeamChange = async () => {
+    await renderTeamManager();
+    await loadDashboard(monthSelect.value || null);
+  };
+
+  const renderTeamManager = async (forceAvatars = false) => {
+    if (!teamManageList) return;
+    if (forceAvatars || !window.avatarsLoadedFromDb) {
+      try {
+        const avatarsRes = await window.api.getAvatarsFromDb();
+        if (avatarsRes && avatarsRes.success) {
+          avatarsRes.data.forEach(a => { window.avatarsDict[a.analystName] = a.image; });
+          window.avatarsLoadedFromDb = true;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar avatares:', err);
+      }
+    }
+    const team = await window.api.getTeam();
+    teamManageList.innerHTML = '';
+    team.forEach(m => {
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);${m.enabled ? '' : 'opacity:0.6;'}`;
+      row.innerHTML = `
+        <img src="${getAvatarForAnalyst(m.name)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${escapeHtml(m.name)}</div>
+          <div style="font-size:12px;color:var(--text-dim);">${m.enabled ? 'Ativo na contenção' : 'Desabilitado (fora das metas)'} · ${m.cargaPadrao}h/dia</div>
+        </div>
+        <button class="btn-ghost-sm team-remove" style="cursor:pointer;color:var(--danger);border:1px solid var(--danger);">Remover</button>
+        <label class="switch" title="${m.enabled ? 'Desabilitar' : 'Habilitar'}">
+          <input type="checkbox" class="team-toggle" ${m.enabled ? 'checked' : ''}>
+          <span class="switch-slider"></span>
+        </label>`;
+      row.querySelector('.team-toggle').addEventListener('change', async (e) => {
+        const res = await window.api.setTeamMemberEnabled(m.name, e.target.checked);
+        if (!res.success) {
+          showToast(res.error, 'error');
+          e.target.checked = !e.target.checked;
+          return;
+        }
+        showToast(`${m.name} ${e.target.checked ? 'habilitado' : 'desabilitado'}.`, 'success');
+        await refreshAfterTeamChange();
+      });
+      const rm = row.querySelector('.team-remove');
+      if (rm) {
+        rm.addEventListener('click', async () => {
+          if (!confirm(`Remover ${m.name} da equipe?`)) return;
+          const res = await window.api.removeTeamMember(m.name);
+          if (!res.success) return showToast(res.error, 'error');
+          showToast(`${m.name} removido.`, 'info');
+          await refreshAfterTeamChange();
+        });
+      }
+      teamManageList.appendChild(row);
+    });
+  };
+
+  if (btnAddMember) {
+    btnAddMember.addEventListener('click', async () => {
+      const res = await window.api.addTeamMember(newMemberName.value, newMemberCarga.value);
+      if (!res.success) return showToast(res.error, 'error');
+      showToast('Funcionário adicionado! Sincronize para carregar as tarefas dele.', 'success');
+      newMemberName.value = '';
+      await refreshAfterTeamChange();
+    });
+  }
+  renderTeamManager().catch(err => console.error('Erro ao carregar equipe:', err));
+  window.api.onTeamUpdated(() => {
+    refreshAfterTeamChange().catch(err => console.error('Erro ao atualizar equipe:', err));
+    showToast('A equipe foi atualizada por outro usuário.', 'info');
+  });
+  const tabBtnSettings = document.getElementById('tabBtnSettings');
+  if (tabBtnSettings) {
+    tabBtnSettings.addEventListener('click', () => {
+      refreshAdminUI().catch(err => console.error(err));
+    });
+  }
+
+  // --- OPÇÕES DE ADMINISTRADOR ---
+  const adminCard = document.getElementById('adminCard');
+  const adminHeader = document.getElementById('adminHeader');
+  const adminChevron = document.getElementById('adminChevron');
+  const adminLockPanel = document.getElementById('adminLockPanel');
+  const adminLockMsg = document.getElementById('adminLockMsg');
+  const adminPasswordInput = document.getElementById('adminPasswordInput');
+  const btnAdminUnlock = document.getElementById('btnAdminUnlock');
+  const adminContent = document.getElementById('adminContent');
+  const adminMasterOnly = document.getElementById('adminMasterOnly');
+  const adminListEl = document.getElementById('adminList');
+  let adminState = { isAdmin: false, isMaster: false, hasPassword: false, unlocked: false };
+  let adminExpanded = false;
+
+  const renderAdminPanels = async () => {
+    if (!adminCard) return;
+    adminCard.style.display = adminState.isAdmin ? '' : 'none';
+    if (!adminState.isAdmin) return;
+    adminChevron.style.transform = adminExpanded ? 'rotate(90deg)' : '';
+    const showBody = adminExpanded;
+    adminLockPanel.style.display = showBody && !adminState.unlocked ? '' : 'none';
+    adminContent.style.display = showBody && adminState.unlocked ? '' : 'none';
+    if (showBody && !adminState.unlocked) {
+      if (!adminState.hasPassword && !adminState.isMaster) {
+        adminLockMsg.textContent = 'A senha de administrador ainda não foi definida pelo administrador principal.';
+        btnAdminUnlock.disabled = true;
+      } else if (!adminState.hasPassword) {
+        adminLockMsg.textContent = 'Defina a senha de administrador (mín. 4 caracteres). Ela será exigida para abrir estas opções.';
+        btnAdminUnlock.textContent = 'Definir senha';
+        btnAdminUnlock.disabled = false;
+      } else {
+        adminLockMsg.textContent = 'Informe a senha de administrador para continuar.';
+        btnAdminUnlock.textContent = 'Desbloquear';
+        btnAdminUnlock.disabled = false;
+      }
+    }
+    if (showBody && adminState.unlocked) {
+      adminMasterOnly.style.display = adminState.isMaster ? '' : 'none';
+      await renderTeamManager(true);
+      if (adminState.isMaster) await renderAdminList();
+    }
+  };
+
+  const refreshAdminUI = async () => {
+    try {
+      adminState = await window.api.adminGetState();
+    } catch (err) {
+      adminState = { isAdmin: false, isMaster: false, hasPassword: false, unlocked: false };
+    }
+    await renderAdminPanels();
+  };
+  window.refreshAdminUI = refreshAdminUI;
+
+  const renderAdminList = async () => {
+    const res = await window.api.adminList();
+    if (!res.success) return;
+    adminListEl.innerHTML = '';
+    const rowStyle = 'display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);';
+    const master = document.createElement('div');
+    master.style.cssText = rowStyle;
+    master.innerHTML = `<div style="flex:1;font-weight:600;">${escapeHtml(res.master)}</div><span style="font-size:12px;color:var(--text-dim);">Principal</span>`;
+    adminListEl.appendChild(master);
+    res.admins.forEach(email => {
+      const row = document.createElement('div');
+      row.style.cssText = rowStyle;
+      row.innerHTML = `<div style="flex:1;">${escapeHtml(email)}</div><button class="btn-ghost-sm" style="cursor:pointer;color:var(--danger);border:1px solid var(--danger);">Remover</button>`;
+      row.querySelector('button').addEventListener('click', async () => {
+        if (!confirm(`Remover acesso de administrador de ${email}?`)) return;
+        const r = await window.api.adminRemove(email);
+        if (!r.success) return showToast(r.error, 'error');
+        showToast('Acesso removido.', 'info');
+        await renderAdminList();
+      });
+      adminListEl.appendChild(row);
+    });
+  };
+
+  if (adminHeader) {
+    adminHeader.addEventListener('click', async () => {
+      adminExpanded = !adminExpanded;
+      if (adminExpanded) adminState = await window.api.adminGetState();
+      else if (adminState.unlocked) { await window.api.adminLock(); adminState.unlocked = false; }
+      await renderAdminPanels();
+      if (adminExpanded && !adminState.unlocked && adminPasswordInput) adminPasswordInput.focus();
+    });
+  }
+
+  const submitAdminPassword = async () => {
+    const pwd = adminPasswordInput.value;
+    const res = adminState.hasPassword
+      ? await window.api.adminUnlock(pwd)
+      : await window.api.adminSetPassword(pwd, '');
+    if (!res.success) return showToast(res.error, 'error');
+    adminPasswordInput.value = '';
+    showToast(adminState.hasPassword ? 'Opções desbloqueadas.' : 'Senha definida!', 'success');
+    await refreshAdminUI();
+  };
+  if (btnAdminUnlock) btnAdminUnlock.addEventListener('click', submitAdminPassword);
+  if (adminPasswordInput) adminPasswordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdminPassword(); });
+
+  const btnAdminLock = document.getElementById('btnAdminLock');
+  if (btnAdminLock) {
+    btnAdminLock.addEventListener('click', async () => {
+      await window.api.adminLock();
+      adminExpanded = false;
+      await refreshAdminUI();
+    });
+  }
+
+  const btnAdminChangePwd = document.getElementById('btnAdminChangePwd');
+  if (btnAdminChangePwd) {
+    btnAdminChangePwd.addEventListener('click', async () => {
+      const cur = document.getElementById('adminCurrentPwd');
+      const nw = document.getElementById('adminNewPwd');
+      const res = await window.api.adminSetPassword(nw.value, cur.value);
+      if (!res.success) return showToast(res.error, 'error');
+      cur.value = ''; nw.value = '';
+      showToast('Senha alterada com sucesso!', 'success');
+    });
+  }
+
+  const btnAddAdmin = document.getElementById('btnAddAdmin');
+  if (btnAddAdmin) {
+    btnAddAdmin.addEventListener('click', async () => {
+      const input = document.getElementById('newAdminEmail');
+      btnAddAdmin.disabled = true;
+      try {
+        const res = await window.api.adminAdd(input.value);
+        if (!res.success) return showToast(res.error, 'error');
+        showToast(`Acesso concedido a ${res.name || input.value}.`, 'success');
+        input.value = '';
+        await renderAdminList();
+      } finally {
+        btnAddAdmin.disabled = false;
+      }
+    });
+  }
+  refreshAdminUI().catch(err => console.error(err));
 
   syncNowBtn.addEventListener('click', async () => {
     await triggerManualSync(monthSelect.value);
@@ -535,8 +789,17 @@ async function checkAuthStatus() {
       if (switchAccountBtn) switchAccountBtn.style.display = 'none';
       syncNowBtn.disabled = false;
     }
+    if (window.refreshAdminUI) window.refreshAdminUI().catch(() => {});
   } catch (err) {
     console.error('Erro ao verificar status:', err);
+  }
+}
+
+function updateLastSyncDisplay(timestamp) {
+  if (!timestamp || !lastSyncTimeEl) return;
+  const d = new Date(timestamp);
+  if (!isNaN(d.getTime())) {
+    lastSyncTimeEl.textContent = `Última sinc: ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
 }
 
@@ -559,8 +822,7 @@ async function loadDashboard(selectedMonth = null) {
     renderDashboard(currentMetrics);
 
     if (res.lastSync) {
-      const d = new Date(res.lastSync);
-      lastSyncTimeEl.textContent = `Última sinc: ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      updateLastSyncDisplay(res.lastSync);
     }
 
     startCountdownTimer(nextSyncTimestamp);
@@ -713,6 +975,7 @@ function getTaskValue(row) {
   if (pri === 'alta') return row.totalTarefasAlta || 0;
   if (pri === 'media') return row.totalTarefasMedia || 0;
   if (pri === 'baixa') return row.totalTarefasBaixa || 0;
+  if (row.priorityCounts && row.priorityCounts[pri] !== undefined) return row.priorityCounts[pri];
   return row.totalTarefasConcluidas || 0;
 }
 
@@ -909,39 +1172,32 @@ function renderTabelaMetasDiaria(data, metric = 'horas') {
 }
 
 function renderTabelaPrioridades(data) {
+  if (!data || !data.rows) return;
+  const list = data.prioridadesList || [
+    'CRIAÇÃO DE BLOG', 'ERRO BLOG', 'BLOG',
+    'CRIAÇÃO DE TOKEN', 'ALTERAR TOKEN', 'API/TOKEN',
+    'ERRO SIG', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT', 'PLANO DE AÇÃO'
+  ];
+
   tabelaPrioridadesBody.innerHTML = '';
   data.rows.forEach(r => {
     const tr = document.createElement('tr');
+    const cells = list.map(p => `<td class="num-cell">${r[p] !== undefined ? r[p] : 0}</td>`).join('');
     tr.innerHTML = `
       <td class="analyst-name">${r.analista}</td>
-      <td class="num-cell">${r['BLOG']}</td>
-      <td class="num-cell">${r['API/TOKEN']}</td>
-      <td class="num-cell">${r['URGENTE']}</td>
-      <td class="num-cell">${r['ALTA']}</td>
-      <td class="num-cell">${r['MÉDIA']}</td>
-      <td class="num-cell">${r['BAIXA']}</td>
-      <td class="num-cell">${r['BACKUP']}</td>
-      <td class="num-cell">${r['T. DE BANCO']}</td>
-      <td class="num-cell">${r['CHATBOT']}</td>
-      <td class="num-cell font-bold" style="color: #38bdf8;">${r.total}</td>
+      ${cells}
+      <td class="num-cell font-bold" style="color: #38bdf8;">${r.total !== undefined ? r.total : 0}</td>
     `;
     tabelaPrioridadesBody.appendChild(tr);
   });
 
-  const tot = data.total;
+  const tot = data.total || {};
+  const totCells = list.map(p => `<td class="num-cell">${tot[p] !== undefined ? tot[p] : 0}</td>`).join('');
   tabelaPrioridadesFoot.innerHTML = `
     <tr>
-      <td>${tot.analista}</td>
-      <td class="num-cell">${tot['BLOG']}</td>
-      <td class="num-cell">${tot['API/TOKEN']}</td>
-      <td class="num-cell">${tot['URGENTE']}</td>
-      <td class="num-cell">${tot['ALTA']}</td>
-      <td class="num-cell">${tot['MÉDIA']}</td>
-      <td class="num-cell">${tot['BAIXA']}</td>
-      <td class="num-cell">${tot['BACKUP']}</td>
-      <td class="num-cell">${tot['T. DE BANCO']}</td>
-      <td class="num-cell">${tot['CHATBOT']}</td>
-      <td class="num-cell font-bold" style="color: #38bdf8;">${tot.total}</td>
+      <td>${tot.analista || 'TOTAL GERAL'}</td>
+      ${totCells}
+      <td class="num-cell font-bold" style="color: #38bdf8;">${tot.total !== undefined ? tot.total : 0}</td>
     </tr>
   `;
 }
@@ -1144,7 +1400,7 @@ function renderTasksTable(tasks) {
       </td>
       <td class="num-cell font-bold" style="color: #60a5fa;">${(t.horas || 0).toFixed(1)}h</td>
       <td class="num-cell">
-        <span class="status-pill ${isFila ? 'abaixo' : 'acima'}">${isFila ? 'Fila / Aberto' : 'Concluída'}</span>
+        <span class="status-pill ${t.category === 'cancelada' ? 'abaixo' : (isFila ? 'abaixo' : 'acima')}">${t.category === 'cancelada' ? 'Cancelada' : (isFila ? 'Fila / Aberto' : 'Concluída')}</span>
       </td>
       <td class="num-cell" style="font-size: 12px; color: ${isOverdue ? '#ef4444' : '#94a3b8'}; ${isOverdue ? 'font-weight: 700;' : ''}">
         ${formattedDate}
@@ -1177,6 +1433,12 @@ async function triggerManualSync(targetMonth = null) {
     const res = await window.api.syncNow(targetMonth);
     if (res.success) {
       currentMetrics = res.data;
+      if (res.lastSync) {
+        updateLastSyncDisplay(res.lastSync);
+      }
+      if (res.nextSync) {
+        startCountdownTimer(res.nextSync);
+      }
       renderDashboard(currentMetrics);
       showToast('Sincronização concluída com sucesso!', 'success');
       loadTasksList();
@@ -1202,11 +1464,17 @@ function setupSyncListeners() {
       syncNowBtn.disabled = false;
     }
 
-    if (data.status === 'success' && data.data) {
-      renderDashboard(data.data);
+    if (data.status === 'success') {
+      if (data.data) {
+        renderDashboard(data.data);
+      }
+      if (data.lastSync) {
+        updateLastSyncDisplay(data.lastSync);
+      }
       if (data.nextSync) {
         startCountdownTimer(data.nextSync);
       }
+      loadTasksList();
     }
   });
 
@@ -1214,6 +1482,9 @@ function setupSyncListeners() {
     if (data.nextSync) {
       nextSyncTimestamp = data.nextSync;
       updateCountdownDisplay();
+    }
+    if (data.lastSync) {
+      updateLastSyncDisplay(data.lastSync);
     }
   });
 }
@@ -1261,3 +1532,81 @@ function debounce(func, wait) {
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
 }
+
+
+// --- Modal de atualização do app ---
+(function initUpdateModal() {
+  const modal = document.getElementById('updateModal');
+  if (!modal || !window.api) return;
+  const icon = document.getElementById('updateIcon');
+  const title = document.getElementById('updateTitle');
+  const text = document.getElementById('updateText');
+  const progressWrap = document.getElementById('updateProgressWrap');
+  const bar = document.getElementById('updateProgressBar');
+  const percent = document.getElementById('updatePercent');
+  const actions = document.getElementById('updateActions');
+
+  const setActions = (buttons) => {
+    actions.innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.textContent = b.label;
+      if (b.primary) el.className = 'primary';
+      el.addEventListener('click', b.onClick);
+      actions.appendChild(el);
+    });
+  };
+
+  const render = (s) => {
+    if (!s || s.status === 'idle' || s.dismissed) { modal.hidden = true; return; }
+    modal.hidden = false;
+    const v = s.version ? ` ${s.version}` : '';
+    icon.classList.remove('spin');
+
+    if (s.status === 'downloading' || s.status === 'progress') {
+      const pct = s.percent || 0;
+      icon.textContent = '⬇';
+      icon.classList.add('spin');
+      title.textContent = `Baixando versão${v}`;
+      text.textContent = 'Você pode continuar usando o painel enquanto isso.';
+      progressWrap.style.display = '';
+      bar.style.width = pct + '%';
+      percent.textContent = pct + '%';
+      setActions([]);
+    } else if (s.status === 'ready') {
+      icon.textContent = '✓';
+      title.textContent = `Versão${v} pronta`;
+      text.textContent = 'Reinicie para aplicar a atualização. Se escolher "Depois", ela será instalada quando você fechar o app.';
+      progressWrap.style.display = 'none';
+      percent.textContent = '';
+      setActions([
+        { label: 'Depois', onClick: () => { modal.hidden = true; window.api.dismissUpdate(); } },
+        { label: 'Atualizar agora', primary: true, onClick: () => window.api.installUpdate() }
+      ]);
+    } else if (s.status === 'error') {
+      icon.textContent = '!';
+      title.textContent = 'Falha na atualização';
+      text.textContent = s.message || 'Não foi possível baixar a atualização.';
+      progressWrap.style.display = 'none';
+      percent.textContent = '';
+      setActions([
+        { label: 'Fechar', onClick: () => { modal.hidden = true; } },
+        { label: 'Tentar de novo', primary: true, onClick: () => window.api.retryUpdate() }
+      ]);
+    }
+  };
+
+  window.api.onUpdaterStatus(render);
+  window.api.getUpdaterStatus().then(render).catch(() => {});
+
+  // Pré-visualização para desenvolvimento: no DevTools, rode previewUpdate('progress'|'ready'|'error'|'off')
+  window.previewUpdate = (state = 'progress') => {
+    const states = {
+      progress: { status: 'progress', version: '9.9.9', percent: 42 },
+      ready: { status: 'ready', version: '9.9.9' },
+      error: { status: 'error', version: '9.9.9', message: 'Sem conexão com o servidor de atualização.' },
+      off: { status: 'idle' }
+    };
+    render(states[state] || states.progress);
+  };
+})();

@@ -3,14 +3,40 @@
  * Replicado fielmente a partir de Codigo.gs e dashsalesforce.xlsx
  */
 
-const ACTIVE_ANALYSTS = [
-  { name: 'Anderson Almeida', searchKey: 'anderson', cargaPadrao: 7.5 },
-  { name: 'Gustavo Chagas', searchKey: 'gustavo', cargaPadrao: 7.5 },
-  { name: 'Mariane Oliveira', searchKey: 'mariane', cargaPadrao: 7.5 },
-  { name: 'Thiago Santos', searchKey: 'thiago', cargaPadrao: 7.5 },
-  { name: 'Felipe Wustemberg', searchKey: 'felipe', cargaPadrao: 7.5 },
-  { name: 'Heloisa Yamanaka', searchKey: 'helo', cargaPadrao: 7.5 }
+const DEFAULT_ANALYSTS = [
+  { name: 'Anderson Almeida', searchKey: 'anderson', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Gustavo Chagas', searchKey: 'gustavo', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Mariane Oliveira', searchKey: 'mariane', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Thiago Santos', searchKey: 'thiago', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Felipe Wustemberg', searchKey: 'felipe', cargaPadrao: 7.5, enabled: true, custom: false },
+  { name: 'Heloisa Yamanaka', searchKey: 'helo', cargaPadrao: 7.5, enabled: true, custom: false }
 ];
+
+// Roster completo da equipe (ativos e desabilitados). Mutado in-place por setRoster().
+const ACTIVE_ANALYSTS = DEFAULT_ANALYSTS.map(a => ({ ...a }));
+
+/**
+ * Substitui o roster da equipe (ex.: carregado das configurações do usuário).
+ * Mantém a mesma referência do array para que todo o módulo enxergue a mudança.
+ */
+function setRoster(members) {
+  if (!Array.isArray(members) || members.length === 0) return;
+  const normalized = members
+    .filter(m => m && m.name && m.searchKey)
+    .map(m => ({
+      name: String(m.name).trim(),
+      searchKey: String(m.searchKey).trim(),
+      cargaPadrao: Number(m.cargaPadrao) > 0 ? Number(m.cargaPadrao) : 7.5,
+      enabled: m.enabled !== false,
+      custom: !!m.custom
+    }));
+  if (normalized.length === 0) return;
+  ACTIVE_ANALYSTS.splice(0, ACTIVE_ANALYSTS.length, ...normalized);
+}
+
+function getRoster() {
+  return ACTIVE_ANALYSTS.map(a => ({ ...a }));
+}
 
 const MONTH_NAMES_PT = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -24,6 +50,37 @@ function cleanString(str) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+/**
+ * Remove URLs e domínios do assunto/título da tarefa para isolar apenas a nomenclatura
+ * Exemplo: 'Alt - Alta - www.api.det.br' -> 'Alt - Alta'
+ * Exemplo: 'Alt - Urgente - www.papillonembalagens.com.br' -> 'Alt - Urgente'
+ * Exemplo: 'Troca de banco - www.api.det.br' -> 'Troca de banco'
+ */
+function removeDomain(str) {
+  if (!str) return '';
+  let s = String(str);
+  // Protocolos: http://, https://, ftp://
+  s = s.replace(/https?:\/\/[^\s\)\],]+/gi, '');
+  // www. ou www,
+  s = s.replace(/www[,.][a-z0-9_\-\.]+(?:\/[^\s\)\],]*)?/gi, '');
+  // Domínios com extensões (ex: .com.br, .det.br, .ind.br, etc.)
+  s = s.replace(/(?:[a-z0-9_\-]+\.)+[a-z]{2,}(?:\/[^\s\)\],]*)?/gi, '');
+  // Limpa parênteses ou colchetes vazios restantes (ex: de ' (dominio.com.br)')
+  s = s.replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '');
+  // Remove separadores e espaços residuais nas bordas
+  s = s.replace(/[\s\-|–—/|,]+$/g, '').replace(/^[\s\-|–—/|,]+/g, '').trim();
+  return s;
+}
+
+/**
+ * Verifica se a palavra existe como token independente (evita match de 'api' dentro de 'cardápio' ou 'papillon')
+ */
+function hasWord(str, word) {
+  if (!str) return false;
+  const regex = new RegExp(`(^|[^a-z0-9])${word}([^a-z0-9]|$)`, 'i');
+  return regex.test(str);
 }
 
 function mapAnalystName(rawName) {
@@ -44,38 +101,53 @@ function mapAnalystName(rawName) {
   return rawName.trim();
 }
 
-function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework) {
+function isCancelledStatus(status) {
+  return cleanString(status || '').includes('cancel');
+}
+
+function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework, status) {
+  const result = calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework);
+  // Tarefas canceladas não contabilizam nada (horas e pontos)
+  if (isCancelledStatus(status)) { result.horas = 0; result.pontos = 0; }
+  return result;
+}
+
+function calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework) {
   const tIdStr = String(taskId || '');
-  const sStr = cleanString(subject);
-  const tpStr = cleanString(rawTipo);
+  const cleanSubjectOrig = cleanString(subject);
+  const sStr = cleanString(removeDomain(subject));
+  const tpStr = cleanString(removeDomain(rawTipo));
 
   let h = parseFloat(String(rawHoras || 0).replace(',', '.'));
   let p = parseFloat(String(rawPontos || 0).replace(',', '.'));
 
   // Exceção especial: Tarefa 00TbL00000cL4scUAC ou assunto com proarbaloes = 12h / 12pts
-  if (tIdStr.includes('00TbL00000cL4scUAC') || sStr.includes('proarbaloes')) {
+  if (tIdStr.includes('00TbL00000cL4scUAC') || sStr.includes('proarbaloes') || cleanSubjectOrig.includes('proarbaloes')) {
     return { horas: 12.0, pontos: 12.0 };
   }
 
   if (isNaN(h) || h === 0) {
-    const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
-    if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) {
-      h = 2.0; p = 2.0;
-    } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog')) {
+    if (sStr.includes('plano de acao') || tpStr.includes('plano de acao')) {
+      h = 0.5; p = 0.5;
+    } else if (sStr.includes('chatbot') || tpStr.includes('chatbot')) {
+      h = 3.0; p = 3.0;
+    } else if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog')) {
       h = 5.0; p = 5.0;
-    } else if (sStr.includes('erro blog')) {
+    } else if (sStr.includes('erro blog') || sStr.includes('erro no blog')) {
       h = 2.0; p = 2.0;
     } else if (tpStr.includes('blog') || sStr.includes('blog')) {
       h = 5.0; p = 5.0;
-    } else if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('alterar token')) {
+    } else if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('criacao do token')) {
       h = 1.0; p = 1.0;
-    } else if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) {
+    } else if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token')) {
+      h = 1.0; p = 1.0;
+    } else if (tpStr.includes('token') || hasWord(tpStr, 'api') || sStr.includes('token') || hasWord(sStr, 'api')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('imagem quebrada') || tpStr.includes('imagem') || sStr.includes('quebrada')) {
       h = 1.0; p = 1.0;
-    } else if (sStr.includes('erro sig')) {
+    } else if (sStr.includes('erro sig') || sStr.includes('erro no sig')) {
       h = 2.0; p = 2.0;
-    } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('t.')) {
+    } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('banco') || sStr.includes('t.') || tpStr.includes('t.')) {
       h = 1.0; p = 1.0;
     } else if (tpStr.includes('baixa') || tpStr.includes('facil') || sStr.includes('baixa') || sStr.includes('facil')) {
       h = 4.0; p = 4.0;
@@ -103,13 +175,23 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
 }
 
 function classifyPriorityCategory(subject, rawTipo) {
-  const sStr = cleanString(subject);
-  const tpStr = cleanString(rawTipo);
-  const withoutDomain = sStr.replace(/[a-z0-9\-]+\.com(\.br)?/g, '');
+  const sStr = cleanString(removeDomain(subject));
+  const tpStr = cleanString(removeDomain(rawTipo));
 
-  if (withoutDomain.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
+  if (sStr.includes('plano de acao') || tpStr.includes('plano de acao')) return 'PLANO DE AÇÃO';
+
+  if (sStr.includes('chatbot') || tpStr.includes('chatbot')) return 'CHATBOT';
+
+  if (sStr.includes('criacao do blog') || sStr.includes('criacao de blog') || sStr.includes('criacao blog') || tpStr.includes('criacao do blog') || tpStr.includes('criacao de blog')) return 'CRIAÇÃO DE BLOG';
+  if (sStr.includes('erro blog') || sStr.includes('erro no blog') || tpStr.includes('erro blog')) return 'ERRO BLOG';
   if (tpStr.includes('blog') || sStr.includes('blog')) return 'BLOG';
-  if (tpStr.includes('token') || tpStr.includes('api') || sStr.includes('token') || sStr.includes('api')) return 'API/TOKEN';
+
+  if (sStr.includes('criacao token') || sStr.includes('criacao de token') || sStr.includes('criacao do token') || tpStr.includes('criacao token') || tpStr.includes('criacao de token')) return 'CRIAÇÃO DE TOKEN';
+  if (sStr.includes('alterar token') || sStr.includes('alteracao de token') || sStr.includes('alteracao token') || tpStr.includes('alterar token') || tpStr.includes('alteracao de token')) return 'ALTERAR TOKEN';
+  if (tpStr.includes('token') || hasWord(tpStr, 'api') || sStr.includes('token') || hasWord(sStr, 'api')) return 'API/TOKEN';
+
+  if (sStr.includes('erro sig') || sStr.includes('erro no sig') || tpStr.includes('erro sig')) return 'ERRO SIG';
+
   if (tpStr.includes('urg') || sStr.includes('urg')) return 'URGENTE';
   if (tpStr.includes('alta') || sStr.includes('alta')) return 'ALTA';
   if (tpStr.includes('med') || sStr.includes('med')) return 'MÉDIA';
@@ -157,6 +239,14 @@ function getWeekOfMonth(dateStr) {
   // Ajustando para que a semana comece na Segunda-feira (0 = Segunda, 6 = Domingo)
   let adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
   
+  // Se o mês começa em sábado/domingo, esses dias fazem parte da Semana 1
+  // junto com a primeira semana útil (que começa na primeira segunda-feira).
+  if (adjustedFirstDay >= 5) {
+    const firstMonday = 8 - adjustedFirstDay;
+    const w = dayNumber < firstMonday ? 1 : Math.floor((dayNumber - firstMonday) / 7) + 1;
+    return `Semana ${w}`;
+  }
+
   const weekNum = Math.ceil((dayNumber + adjustedFirstDay) / 7);
   return `Semana ${weekNum}`;
 }
@@ -253,9 +343,6 @@ function getMonthWorkdays(year, monthIndex) {
     }
   }
 
-  if (isCurrentMonth && currentWorkday <= 2) {
-    currentWorkday = 1;
-  }
   if (!isCurrentMonth && !isPastMonth) {
     currentWorkday = 0;
   }
@@ -404,7 +491,9 @@ function parseReportData(rawReport, category = 'concluidas') {
       const cleanSt = cleanString(status);
       let finalCategory = category;
 
-      if (cleanSt.includes('abert') || cleanSt.includes('andamento') || cleanSt.includes('progress') || cleanSt.includes('aguard') || cleanSt.includes('pendent') || cleanSt.includes('novo') || cleanSt.includes('nova')) {
+      if (isCancelledStatus(status)) {
+        finalCategory = 'cancelada';
+      } else if (cleanSt.includes('abert') || cleanSt.includes('andamento') || cleanSt.includes('progress') || cleanSt.includes('aguard') || cleanSt.includes('pendent') || cleanSt.includes('novo') || cleanSt.includes('nova')) {
         finalCategory = 'fila';
       } else if (cleanSt.includes('conclu') || cleanSt.includes('fechad') || cleanSt.includes('finaliz') || cleanSt.includes('realiz') || cleanSt.includes('entreg') || cleanSt.includes('done')) {
         finalCategory = 'concluidas';
@@ -460,10 +549,10 @@ function parseReportData(rawReport, category = 'concluidas') {
       const rawH = cols.horas !== -1 && cells[cols.horas] ? cells[cols.horas].value : 0;
       const rawP = cols.pontos !== -1 && cells[cols.pontos] ? cells[cols.pontos].value : 0;
 
-      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework);
+      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework, status);
       const priorityCategory = classifyPriorityCategory(subject, tipo);
       const week = getWeekOfMonth(dataEntrega || dataVencimento);
-      const monthYear = finalCategory === 'concluidas' ? parseMonthYear(dataEntrega || dataVencimento) : 'Outros';
+      const monthYear = finalCategory === 'concluidas' ? parseMonthYear(dataEntrega || dataVencimento) : (finalCategory === 'cancelada' ? 'Cancelada' : 'Outros');
 
       tasksList.push({
         taskId: taskId || `SF-${Math.random().toString(36).substring(2, 9)}`,
@@ -487,10 +576,48 @@ function parseReportData(rawReport, category = 'concluidas') {
   return tasksList;
 }
 
+const PRIORIDADES_LIST = [
+  'CRIAÇÃO DE BLOG',
+  'ERRO BLOG',
+  'BLOG',
+  'CRIAÇÃO DE TOKEN',
+  'ALTERAR TOKEN',
+  'API/TOKEN',
+  'ERRO SIG',
+  'URGENTE',
+  'ALTA',
+  'MÉDIA',
+  'BAIXA',
+  'BACKUP',
+  'T. DE BANCO',
+  'CHATBOT',
+  'PLANO DE AÇÃO'
+];
+
+function getPriorityCounts(tasks = []) {
+  const counts = {};
+  PRIORIDADES_LIST.forEach(p => counts[p] = 0);
+  tasks.forEach(t => {
+    const p = t.priorityCategory || 'ALTA';
+    if (counts[p] !== undefined) counts[p]++;
+    else counts['ALTA']++;
+  });
+  return counts;
+}
+
 /**
  * Consolida todas as métricas para a Dashboard completa
  */
 function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
+  // Desabilitados (ex.: férias) ficam fora das metas, rankings e totais
+  const enabledAnalysts = ACTIVE_ANALYSTS.filter(a => a.enabled !== false);
+  const disabledNames = new Set(ACTIVE_ANALYSTS.filter(a => a.enabled === false).map(a => a.name));
+  const tasks = disabledNames.size > 0 ? allTasks.filter(t => !disabledNames.has(t.analista)) : allTasks;
+  return buildDashboardMetricsInternal(tasks, selectedMonth, enabledAnalysts);
+}
+
+// O parâmetro ACTIVE_ANALYSTS sombreia propositalmente a constante do módulo
+function buildDashboardMetricsInternal(allTasks = [], selectedMonth = null, ACTIVE_ANALYSTS = []) {
   const now = new Date();
   const defaultMonth = `${MONTH_NAMES_PT[now.getMonth()]} ${now.getFullYear()}`;
 
@@ -553,7 +680,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaTasks.length,
       totalTarefasAlta: analistaTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaTasks)
     };
   });
 
@@ -636,7 +764,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaWeekTasks.length,
       totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaWeekTasks)
     };
   });
 
@@ -674,7 +803,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         totalTarefasConcluidas: analistaWeekTasks.length,
         totalTarefasAlta: analistaWeekTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
         totalTarefasMedia: analistaWeekTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-        totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+        totalTarefasBaixa: analistaWeekTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+        priorityCounts: getPriorityCounts(analistaWeekTasks)
       };
     });
   }
@@ -718,7 +848,8 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalTarefasConcluidas: analistaDayTasks.length,
       totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
       totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-      totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+      totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(analistaDayTasks)
     };
   });
 
@@ -753,24 +884,17 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
         totalTarefasConcluidas: analistaDayTasks.length,
         totalTarefasAlta: analistaDayTasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
         totalTarefasMedia: analistaDayTasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
-        totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length
+        totalTarefasBaixa: analistaDayTasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+        priorityCounts: getPriorityCounts(analistaDayTasks)
       };
     });
   }
 
   // 2. Tabela 2: Tarefas por Nível de Prioridade (Volume de Entregas)
-  const prioridadesList = ['BLOG', 'API/TOKEN', 'URGENTE', 'ALTA', 'MÉDIA', 'BAIXA', 'BACKUP', 'T. DE BANCO', 'CHATBOT'];
+  const prioridadesList = PRIORIDADES_LIST;
   const tabelaPrioridades = ACTIVE_ANALYSTS.map(analista => {
     const analistaTasks = monthTasks.filter(t => t.analista === analista.name);
-    const counts = {};
-    prioridadesList.forEach(p => counts[p] = 0);
-
-    analistaTasks.forEach(t => {
-      const p = t.priorityCategory || 'ALTA';
-      if (counts[p] !== undefined) counts[p]++;
-      else counts['ALTA']++;
-    });
-
+    const counts = getPriorityCounts(analistaTasks);
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return {
       analista: analista.name,
@@ -836,6 +960,23 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
       totalMensal
     };
   });
+
+  // Linha "Não Alocados": tarefas concluídas sem analista ativo no roster
+  const activeNames = new Set(ACTIVE_ANALYSTS.map(a => a.name));
+  const naoAlocadasTasks = monthTasks.filter(t => !activeNames.has(t.analista));
+  if (naoAlocadasTasks.length > 0) {
+    const semanasNA = {};
+    semanasList.forEach(s => semanasNA[s] = 0);
+    naoAlocadasTasks.forEach(t => {
+      const s = t.semana || 'Semana 1';
+      if (semanasNA[s] !== undefined) semanasNA[s]++;
+    });
+    tabelaTarefasSemanais.push({
+      analista: 'Não Alocados',
+      ...semanasNA,
+      totalMensal: Object.values(semanasNA).reduce((a, b) => a + b, 0)
+    });
+  }
 
   const totalTarefasSemanaisRow = {
     analista: 'TOTAL GERAL DE TAREFAS',
@@ -903,10 +1044,18 @@ function buildDashboardMetrics(allTasks = [], selectedMonth = null) {
 
 module.exports = {
   ACTIVE_ANALYSTS,
+  DEFAULT_ANALYSTS,
+  setRoster,
+  getRoster,
+  cleanString,
   MONTH_NAMES_PT,
+  PRIORIDADES_LIST,
   parseReportData,
   buildDashboardMetrics,
   calculateHorasEPontos,
+  classifyPriorityCategory,
+  removeDomain,
+  hasWord,
   getMonthWorkdays,
   parseMonthYear
 };

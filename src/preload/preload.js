@@ -25,6 +25,37 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('system:get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('system:save-settings', settings),
 
+  // Atualizações do app
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:get-status'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  retryUpdate: () => ipcRenderer.invoke('updater:retry'),
+  dismissUpdate: () => ipcRenderer.invoke('updater:dismiss'),
+  onUpdaterStatus: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  },
+
+  // Equipe
+  getTeam: () => ipcRenderer.invoke('team:get'),
+  setTeamMemberEnabled: (name, enabled) => ipcRenderer.invoke('team:set-enabled', name, enabled),
+  addTeamMember: (name, cargaPadrao) => ipcRenderer.invoke('team:add', name, cargaPadrao),
+  removeTeamMember: (name) => ipcRenderer.invoke('team:remove', name),
+
+  // Opções de administrador
+  adminGetState: () => ipcRenderer.invoke('admin:get-state'),
+  adminUnlock: (password) => ipcRenderer.invoke('admin:unlock', password),
+  adminLock: () => ipcRenderer.invoke('admin:lock'),
+  adminSetPassword: (newPassword, currentPassword) => ipcRenderer.invoke('admin:set-password', newPassword, currentPassword),
+  adminList: () => ipcRenderer.invoke('admin:list'),
+  adminAdd: (email) => ipcRenderer.invoke('admin:add', email),
+  adminRemove: (email) => ipcRenderer.invoke('admin:remove', email),
+  onTeamUpdated: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('team:updated', handler);
+    return () => ipcRenderer.removeListener('team:updated', handler);
+  },
+
   // Ouvintes de Eventos em Tempo Real
   onSyncStatus: (callback) => {
     const handler = (event, data) => callback(data);
