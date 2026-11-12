@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   // Sincronização & Dashboard
   syncNow: (targetMonth = null) => ipcRenderer.invoke('sync:now', targetMonth),
   getDashboardData: (selectedMonth) => ipcRenderer.invoke('dashboard:get-data', selectedMonth),
+  getRankingRange: (startIso, endIso) => ipcRenderer.invoke('ranking:get-range', startIso, endIso),
   getTasksList: (filters) => ipcRenderer.invoke('tasks:get-list', filters),
 
   // Banco de Dados (Firebase)

@@ -15,8 +15,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const { loadTokens, clearTokens, startLoginFlow } = require('../services/salesforceAuth');
-const { fetchAllReports } = require('../services/salesforceReports');
-const { parseReportData, buildDashboardMetrics, classifyPriorityCategory, calculateHorasEPontos, setRoster, getRoster, cleanString } = require('../services/businessRules');
+const { fetchAllReports, fetchConcluidasForRange } = require('../services/salesforceReports');
+const { parseReportData, buildDashboardMetrics, buildRangeMetrics, classifyPriorityCategory, calculateHorasEPontos, setRoster, getRoster, cleanString } = require('../services/businessRules');
 const { saveDashboardToFirebase, getDashboardsFromFirebase, saveAvatarToFirebase, getAvatarsFromFirebase, saveTeamToFirebase, subscribeTeam, getAdminConfigFromFirebase, saveAdminConfigToFirebase } = require('../services/firebase');
 const { fetchSalesforceEndpoint } = require('../services/salesforceReports');
 const crypto = require('crypto');
@@ -193,6 +193,9 @@ let inMemoryState = {
   allTasks: [],
   selectedMonth: null
 };
+
+// Cache em memória das consultas de ranking personalizado (chave: "inicio|fim")
+const rangeCache = new Map();
 
 // Carrega cache na inicialização
 const initialCache = loadCachedData();
@@ -411,6 +414,31 @@ function registerIpcHandlers() {
       lastSync: inMemoryState.lastSync,
       nextSync: nextSyncTimestamp
     };
+  });
+
+  // Ranking por período personalizado (data inicial/final). Não altera o mês selecionado.
+  ipcMain.handle('ranking:get-range', async (event, startIso, endIso) => {
+    try {
+      const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+      if (!isoRe.test(startIso) || !isoRe.test(endIso)) throw new Error('Datas inválidas.');
+      if (startIso > endIso) throw new Error('A data inicial não pode ser maior que a final.');
+
+      const cacheKey = `${startIso}|${endIso}`;
+      const hit = rangeCache.get(cacheKey);
+      if (hit && Date.now() - hit.at < SYNC_INTERVAL_MS) {
+        return { success: true, data: buildRangeMetrics(hit.tasks, startIso, endIso) };
+      }
+
+      const raws = await fetchConcluidasForRange(startIso, endIso);
+      const tasks = raws.flatMap(r => parseReportData(r.raw, 'concluidas'));
+      rangeCache.set(cacheKey, { at: Date.now(), tasks });
+      if (rangeCache.size > 10) rangeCache.delete(rangeCache.keys().next().value);
+
+      return { success: true, data: buildRangeMetrics(tasks, startIso, endIso) };
+    } catch (err) {
+      console.error('[Main] Falha no ranking personalizado:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   // Obter tarefas detalhadas com filtros

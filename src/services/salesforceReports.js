@@ -123,7 +123,28 @@ async function fetchAllReports(targetMonthYear = null) {
   };
 }
 
+/**
+ * Busca as concluídas de um intervalo, mês a mês (cada mês é uma consulta própria,
+ * o que evita estourar o limite de linhas do relatório em períodos longos).
+ * Retorna uma lista de { month, raw }, um item por mês.
+ */
+async function fetchConcluidasForRange(startIso, endIso) {
+  const NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const [sy, sm] = startIso.split('-').map(Number);
+  const [ey, em] = endIso.split('-').map(Number);
+  const out = [];
+  let y = sy, m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    const month = `${NAMES[m - 1]} ${y}`;
+    out.push({ month, raw: await getReportData(REPORT_CONCLUIDAS_ID, month) });
+    if (++m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
 module.exports = {
+  fetchConcluidasForRange,
   REPORT_FILA_ID,
   REPORT_CONCLUIDAS_ID,
   getReportData,

@@ -109,6 +109,8 @@ function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, 
   const result = calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework);
   // Tarefas canceladas não contabilizam nada (horas e pontos)
   if (isCancelledStatus(status)) { result.horas = 0; result.pontos = 0; }
+  // Troca de banco (T. DE BANCO) não vale horas nem pontos
+  if (classifyPriorityCategory(subject, rawTipo) === 'T. DE BANCO') { result.horas = 0; result.pontos = 0; }
   return result;
 }
 
@@ -148,7 +150,7 @@ function calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHor
     } else if (sStr.includes('erro sig') || sStr.includes('erro no sig')) {
       h = 2.0; p = 2.0;
     } else if (sStr.includes('erro no banco') || tpStr.includes('banco') || tpStr.includes('sig') || sStr.includes('banco') || sStr.includes('t.') || tpStr.includes('t.')) {
-      h = 1.0; p = 1.0;
+      h = 0.0; p = 0.0;
     } else if (tpStr.includes('baixa') || tpStr.includes('facil') || sStr.includes('baixa') || sStr.includes('facil')) {
       h = 4.0; p = 4.0;
     } else if (tpStr.includes('med') || sStr.includes('med')) {
@@ -307,12 +309,35 @@ function parseTargetMonthInfo(monthYearStr) {
   return { name: monthYearStr, year, monthIndex };
 }
 
+const HOLIDAYS = [
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-04-03', '2026-04-21',
+  '2026-05-01', '2026-06-04', '2026-07-09', '2026-09-07', '2026-10-12',
+  '2026-11-02', '2026-11-15', '2026-11-20', '2026-12-25'
+];
+
+function toIsoLocal(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Conta dias úteis (seg-sex, sem feriados) entre duas datas ISO (YYYY-MM-DD), inclusive.
+ */
+function countWorkdaysBetween(startIso, endIso) {
+  const [sy, sm, sd] = startIso.split('-').map(Number);
+  const [ey, em, ed] = endIso.split('-').map(Number);
+  const cur = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+  let count = 0;
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6 && !HOLIDAYS.includes(toIsoLocal(cur))) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
 function getMonthWorkdays(year, monthIndex) {
-  const holidays = [
-    '2026-01-01', '2026-02-16', '2026-02-17', '2026-04-03', '2026-04-21',
-    '2026-05-01', '2026-06-04', '2026-07-09', '2026-09-07', '2026-10-12',
-    '2026-11-02', '2026-11-15', '2026-11-20', '2026-12-25'
-  ];
+  const holidays = HOLIDAYS;
 
   const totalDaysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   let totalWorkdays = 0;
@@ -1042,7 +1067,89 @@ function buildDashboardMetricsInternal(allTasks = [], selectedMonth = null, ACTI
   };
 }
 
+/**
+ * Ranking de período personalizado (data inicial/final, inclusive).
+ * Recebe tarefas concluídas já buscadas para o intervalo; filtra por dataEntrega.
+ */
+function buildRangeMetrics(allTasks = [], startIso, endIso) {
+  const enabledAnalysts = ACTIVE_ANALYSTS.filter(a => a.enabled !== false);
+  const disabledNames = new Set(ACTIVE_ANALYSTS.filter(a => a.enabled === false).map(a => a.name));
+
+  const taskIso = (t) => {
+    const m = String(t.dataEntrega || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+  };
+  const inRange = allTasks.filter(t => {
+    if (t.category !== 'concluidas' || disabledNames.has(t.analista)) return false;
+    const iso = taskIso(t);
+    return !!iso && iso >= startIso && iso <= endIso;
+  });
+
+  // Comparativo mês a mês dentro do período
+  const SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const meses = [];
+  {
+    let y = Number(startIso.slice(0, 4)), mo = Number(startIso.slice(5, 7));
+    const ey = Number(endIso.slice(0, 4)), em = Number(endIso.slice(5, 7));
+    while (y < ey || (y === ey && mo <= em)) {
+      const key = `${y}-${String(mo).padStart(2, '0')}`;
+      const monthStart = `${key}-01`;
+      const monthEnd = `${key}-${String(new Date(y, mo, 0).getDate()).padStart(2, '0')}`;
+      meses.push({
+        key,
+        label: `${SHORT[mo - 1]}/${String(y).slice(2)}`,
+        parcial: startIso > monthStart || endIso < monthEnd // período não cobre o mês inteiro
+      });
+      if (++mo > 12) { mo = 1; y++; }
+    }
+  }
+  const porMes = enabledAnalysts.map(analista => {
+    const valores = meses.map(me => {
+      const ts = inRange.filter(t => t.analista === analista.name && taskIso(t).startsWith(me.key));
+      return {
+        horas: Number(ts.reduce((a, t) => a + (t.horas || 0), 0).toFixed(1)),
+        pontos: Number(ts.reduce((a, t) => a + (t.pontos || 0), 0).toFixed(1)),
+        tarefas: ts.length
+      };
+    });
+    return { analista: analista.name, valores };
+  });
+
+  const totalWorkdays = countWorkdaysBetween(startIso, endIso);
+  // Meta esperada até hoje: não cobra dias que ainda não aconteceram
+  const todayIso = toIsoLocal(new Date());
+  const elapsedEnd = todayIso < endIso ? todayIso : endIso;
+  const elapsedWorkdays = elapsedEnd >= startIso ? countWorkdaysBetween(startIso, elapsedEnd) : 0;
+
+  const rows = enabledAnalysts.map(analista => {
+    const tasks = inRange.filter(t => t.analista === analista.name);
+    const metaPeriodo = analista.cargaPadrao * totalWorkdays;
+    const previsaoParcial = analista.cargaPadrao * elapsedWorkdays;
+    const horasTrabalhadas = Number(tasks.reduce((acc, t) => acc + (t.horas || 0), 0).toFixed(1));
+    const pontosTotais = Number(tasks.reduce((acc, t) => acc + (t.pontos || 0), 0).toFixed(1));
+    const saldo = Number((horasTrabalhadas - previsaoParcial).toFixed(1));
+    return {
+      analista: analista.name,
+      metaPeriodo: Number(metaPeriodo.toFixed(1)),
+      previsaoParcial: Number(previsaoParcial.toFixed(1)),
+      horasTrabalhadas,
+      saldo,
+      pontosTotais,
+      percentualAtingido: metaPeriodo > 0 ? Number(((horasTrabalhadas / metaPeriodo) * 100).toFixed(1)) : 0,
+      statusMeta: saldo >= 0 ? 'Acima da meta' : 'Abaixo da meta',
+      totalTarefasConcluidas: tasks.length,
+      totalTarefasAlta: tasks.filter(t => ['URGENTE', 'ALTA'].includes(t.priorityCategory)).length,
+      totalTarefasMedia: tasks.filter(t => ['MÉDIA'].includes(t.priorityCategory)).length,
+      totalTarefasBaixa: tasks.filter(t => ['BAIXA', 'BACKUP'].includes(t.priorityCategory)).length,
+      priorityCounts: getPriorityCounts(tasks)
+    };
+  });
+
+  return { startDate: startIso, endDate: endIso, totalWorkdays, elapsedWorkdays, totalTarefas: inRange.length, rows, meses, porMes };
+}
+
 module.exports = {
+  buildRangeMetrics,
   ACTIVE_ANALYSTS,
   DEFAULT_ANALYSTS,
   setRoster,

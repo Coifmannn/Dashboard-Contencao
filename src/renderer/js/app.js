@@ -160,6 +160,10 @@ function setupEventListeners() {
       renderTabelaMetasSemanal({ rows: weekRows }, rankingMetricSelect.value);
       renderTabelaMetasDiaria({ rows: dayRows }, rankingMetricSelect.value);
     }
+    if (customRangeData) {
+      renderTabelaMetasPersonalizado(customRangeData, rankingMetricSelect.value);
+      renderRankingPodium(customRangeData, 'podiumPersonalizadoContainer', rankingMetricSelect.value);
+    }
   };
 
   if (rankingMetricSelect) {
@@ -199,6 +203,8 @@ function setupEventListeners() {
       renderRankingPodium({ rows: dayRows }, 'podiumDiarioContainer', metric);
     });
   }
+
+  setupRankingPersonalizado();
 
   // Para adicionar um tema: crie o bloco [data-theme="id"] no style.css e uma linha aqui.
   const THEMES = [
@@ -725,6 +731,10 @@ function setupEventListeners() {
         }
         dataToRender = { rows: dayRows };
         title = '🏆 Destaques do Dia (Expandido)';
+      } else if (target === 'personalizado') {
+        if (!customRangeData) return;
+        dataToRender = customRangeData;
+        title = `🏆 Destaques do Período ${formatIsoBr(customRangeData.startDate)} a ${formatIsoBr(customRangeData.endDate)} (Expandido)`;
       }
 
       if (dataToRender) {
@@ -1157,6 +1167,256 @@ function renderTabelaMetasDiaria(data, metric = 'horas') {
         ${isAcima ? '+' : ''}${r.saldo.toFixed(1)}h
       </td>
       <td class="num-cell font-bold">${r.pontosTotais.toFixed(1)}</td>
+      <td class="num-cell">
+        <div>${r.percentualAtingido}%</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" style="width: ${Math.min(r.percentualAtingido, 100)}%; background: ${isAcima ? '#10b981' : '#f59e0b'};"></div>
+        </div>
+      </td>
+      <td class="num-cell">
+        <span class="status-pill ${isAcima ? 'acima' : 'abaixo'}">${r.statusMeta}</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Ranking Personalizado (intervalo de datas) ---
+let customRangeData = null;
+
+function formatIsoBr(iso) {
+  const [y, m, d] = String(iso).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function toIsoLocalDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function computePresetRange(preset) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  if (preset === 'mes') return [new Date(y, m, 1), new Date(y, m + 1, 0)];
+  if (preset === 'trimestre') {
+    const q = Math.floor(m / 3) * 3;
+    return [new Date(y, q, 1), new Date(y, q + 3, 0)];
+  }
+  if (preset === 'semestre') {
+    const s = m < 6 ? 0 : 6;
+    return [new Date(y, s, 1), new Date(y, s + 6, 0)];
+  }
+  if (preset === 'ano') return [new Date(y, 0, 1), new Date(y, 11, 31)];
+  return null;
+}
+
+function setupRankingPersonalizado() {
+  const startEl = document.getElementById('filterPersonalizadoStart');
+  const endEl = document.getElementById('filterPersonalizadoEnd');
+  const presetEl = document.getElementById('personalizadoPreset');
+  const exportBtn = document.getElementById('exportPdfBtnPersonalizado');
+  if (!startEl || !endEl) return;
+
+  let busy = false;
+  let lastKey = '';
+  let debounceTimer = null;
+
+  // Busca o período atual das duas datas. Chamado automaticamente ao escolher datas/atalhos.
+  const applyRange = async (force = false) => {
+    const start = startEl.value;
+    const end = endEl.value;
+    // Datas incompletas (usuário ainda digitando) ou ano absurdo: espera
+    if (!start || !end || start.slice(0, 4) < '2000' || end.slice(0, 4) < '2000') return;
+    if (start > end) {
+      showToast('A data inicial não pode ser maior que a final.', 'error');
+      return;
+    }
+    const key = `${start}|${end}`;
+    if (busy || (!force && key === lastKey && customRangeData)) return;
+    busy = true;
+    const label = document.getElementById('personalizadoPeriodLabel');
+    if (label) label.textContent = 'Buscando...';
+    try {
+      const res = await window.api.getRankingRange(start, end);
+      if (!res || !res.success) {
+        showToast(`Erro ao buscar período: ${res?.error || 'falha desconhecida'}`, 'error');
+        if (label && customRangeData) renderTabelaMetasPersonalizado(customRangeData, document.getElementById('rankingMetricSelect')?.value || 'horas');
+        return;
+      }
+      lastKey = key;
+      customRangeData = res.data;
+      const metric = document.getElementById('rankingMetricSelect')?.value || 'horas';
+      renderTabelaMetasPersonalizado(customRangeData, metric);
+      renderRankingPodium(customRangeData, 'podiumPersonalizadoContainer', metric);
+      if (customRangeData.totalTarefas === 0) {
+        showToast('Nenhuma tarefa concluída encontrada nesse período.', 'info');
+      }
+    } catch (err) {
+      showToast(`Erro ao buscar período: ${err.message}`, 'error');
+    } finally {
+      busy = false;
+    }
+  };
+
+  // Escolher as datas já busca (com pequeno atraso para não disparar a cada dígito).
+  // Não deixa escolher fim antes do início (e vice-versa) direto no calendário.
+  const onManualDateChange = () => {
+    endEl.min = startEl.value || '';
+    startEl.max = endEl.value || '';
+    if (presetEl) presetEl.value = ''; // datas manuais: nenhum atalho ativo
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => applyRange(), 400);
+  };
+  startEl.addEventListener('change', onManualDateChange);
+  endEl.addEventListener('change', onManualDateChange);
+
+  const fillPreset = (preset) => {
+    const range = computePresetRange(preset);
+    if (!range) return false;
+    startEl.value = toIsoLocalDate(range[0]);
+    endEl.value = toIsoLocalDate(range[1]);
+    endEl.min = startEl.value;
+    startEl.max = endEl.value;
+    if (presetEl) presetEl.value = preset;
+    return true;
+  };
+
+  if (presetEl) {
+    presetEl.addEventListener('change', () => {
+      if (fillPreset(presetEl.value)) applyRange();
+    });
+  }
+
+  // Padrão: mês atual. Já preenche as datas e carrega o ranking ao abrir a aba pela primeira vez
+  fillPreset('mes');
+  const subtabBtn = document.querySelector('.sidebar-subtab[data-subtab="ranking-personalizado"]');
+  if (subtabBtn) {
+    subtabBtn.addEventListener('click', () => {
+      if (!customRangeData) applyRange();
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', async () => {
+      if (!customRangeData) {
+        showToast('Aplique um período antes de exportar.', 'info');
+        return;
+      }
+      exportBtn.disabled = true;
+      showToast('Gerando PDF... Aguarde a janela de salvamento.', 'info');
+      try {
+        const label = `${customRangeData.startDate}_a_${customRangeData.endDate}`;
+        const res = await window.api.exportPdf(`Ranking_Personalizado_Contencao_${label}`);
+        if (res.success) showToast('PDF exportado com sucesso!', 'success');
+        else if (res.canceled) showToast('Exportação cancelada.', 'info');
+        else showToast(`Erro ao exportar: ${res.error}`, 'error');
+      } catch (err) {
+        showToast(`Erro ao exportar PDF: ${err.message}`, 'error');
+      } finally {
+        exportBtn.disabled = false;
+      }
+    });
+  }
+}
+
+// Três tabelas (horas, pontos, tarefas): uma coluna por mês do período + total e variação vs. mês anterior
+function renderComparativoMeses(data) {
+  const box = document.getElementById('comparativoMesesContainer');
+  if (!box) return;
+  if (!data.meses) {
+    // Resposta sem o comparativo: o processo principal ainda roda a versão antiga do código
+    box.innerHTML = '<p style="color: #f59e0b; font-size: 13px; padding: 10px 16px;">Comparativo indisponível: feche e abra o app novamente (o processo principal precisa reiniciar para carregar a atualização).</p>';
+    return;
+  }
+  if (data.meses.length === 0) { box.innerHTML = ''; return; }
+
+  const defs = [
+    { key: 'horas', title: 'Horas', suffix: 'h', digits: 1, color: '#60a5fa' },
+    { key: 'pontos', title: 'Pontos', suffix: '', digits: 1, color: '#fbbf24' },
+    { key: 'tarefas', title: 'Tarefas', suffix: '', digits: 0, color: '#34d399' }
+  ];
+  const fmt = (v, d) => Number(v).toFixed(d);
+  const delta = (cur, prev) => {
+    if (prev === undefined) return '';
+    if (prev === 0) return cur > 0 ? '<span style="color:#34d399;font-size:11px;">▲ novo</span>' : '';
+    const pct = ((cur - prev) / prev) * 100;
+    if (Math.abs(pct) < 0.05) return '<span style="color:#94a3b8;font-size:11px;">= 0%</span>';
+    const up = pct > 0;
+    return `<span style="color:${up ? '#34d399' : '#f87171'};font-size:11px;">${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}%</span>`;
+  };
+
+  const head = data.meses.map(m =>
+    `<th>${m.label}${m.parcial ? ' <span title="Mês parcial: o período não cobre o mês inteiro" style="color:#f59e0b;">*</span>' : ''}</th>`
+  ).join('');
+
+  box.innerHTML = defs.map(def => {
+    const rows = [...data.porMes]
+      .map(r => ({ ...r, total: r.valores.reduce((a, v) => a + v[def.key], 0) }))
+      .sort((a, b) => b.total - a.total);
+    const colTotals = data.meses.map((_, i) => rows.reduce((a, r) => a + r.valores[i][def.key], 0));
+    const grand = colTotals.reduce((a, v) => a + v, 0);
+
+    const body = rows.map(r => `
+      <tr>
+        <td class="analyst-name">${r.analista}</td>
+        ${r.valores.map((v, i) => `<td class="num-cell">
+          <div style="color:${def.color};font-weight:600;">${fmt(v[def.key], def.digits)}${def.suffix}</div>
+          <div>${delta(v[def.key], i > 0 ? r.valores[i - 1][def.key] : undefined)}</div>
+        </td>`).join('')}
+        <td class="num-cell font-bold">${fmt(r.total, def.digits)}${def.suffix}</td>
+      </tr>`).join('');
+
+    const foot = `
+      <tr>
+        <td>TOTAL</td>
+        ${colTotals.map((v, i) => `<td class="num-cell font-bold">
+          <div>${fmt(v, def.digits)}${def.suffix}</div>
+          <div>${delta(v, i > 0 ? colTotals[i - 1] : undefined)}</div>
+        </td>`).join('')}
+        <td class="num-cell font-bold">${fmt(grand, def.digits)}${def.suffix}</td>
+      </tr>`;
+
+    return `
+      <h3 style="margin: 14px 16px 6px; font-size: 14px; color: #cbd5e1;">${def.title} por mês</h3>
+      <div class="table-container">
+        <table class="data-table styled-table ranking-table">
+          <thead><tr><th>Analista</th>${head}<th>Total</th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot>${foot}</tfoot>
+        </table>
+      </div>`;
+  }).join('') + (data.meses.some(m => m.parcial)
+    ? '<p style="margin: 8px 16px 0; font-size: 11px; color: #f59e0b;">* mês parcial: o período escolhido não cobre o mês inteiro, então a comparação com ele não é de igual para igual.</p>'
+    : '');
+}
+
+function renderTabelaMetasPersonalizado(data, metric = 'horas') {
+  const tbody = document.getElementById('tabelaMetasPersonalizadoBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  renderComparativoMeses(data);
+
+  const label = document.getElementById('personalizadoPeriodLabel');
+  if (label) label.textContent = `${formatIsoBr(data.startDate)} a ${formatIsoBr(data.endDate)} · ${data.totalWorkdays} dias úteis`;
+
+  let sorted = [...data.rows];
+  if (metric === 'pontos') sorted.sort((a, b) => b.pontosTotais - a.pontosTotais);
+  else if (metric === 'tarefas') sorted.sort((a, b) => getTaskValue(b) - getTaskValue(a));
+  else sorted.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas);
+
+  sorted.forEach(r => {
+    const tr = document.createElement('tr');
+    const isAcima = r.saldo >= 0;
+    tr.innerHTML = `
+      <td class="analyst-name">${r.analista}</td>
+      <td class="num-cell">${r.metaPeriodo.toFixed(1)}h</td>
+      <td class="num-cell">${r.previsaoParcial.toFixed(1)}h</td>
+      <td class="num-cell font-bold" style="color: #60a5fa;">${r.horasTrabalhadas.toFixed(1)}h</td>
+      <td class="num-cell font-bold" style="color: ${isAcima ? '#34d399' : '#f87171'};">
+        ${isAcima ? '+' : ''}${r.saldo.toFixed(1)}h
+      </td>
+      <td class="num-cell font-bold">${r.pontosTotais.toFixed(1)}</td>
+      <td class="num-cell">${r.totalTarefasConcluidas}</td>
       <td class="num-cell">
         <div>${r.percentualAtingido}%</div>
         <div class="progress-bar-container">

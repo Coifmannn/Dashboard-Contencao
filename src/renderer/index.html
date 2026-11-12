@@ -40,6 +40,7 @@
             <button class="sidebar-subtab active" data-subtab="ranking-mensal" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Mensal</button>
             <button class="sidebar-subtab" data-subtab="ranking-semanal" style="background: transparent; color: #94a3b8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Semanal</button>
             <button class="sidebar-subtab" data-subtab="ranking-diario" style="background: transparent; color: #94a3b8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Diário</button>
+            <button class="sidebar-subtab" data-subtab="ranking-personalizado" style="background: transparent; color: #94a3b8; border: none; padding: 8px; text-align: left; cursor: pointer; font-size: 13px; border-radius: 4px; transition: 0.2s; width: 100%;">Personalizado</button>
           </div>
         </div>
         <button class="nav-tab" data-tab="tab-settings" id="tabBtnSettings">
@@ -531,6 +532,72 @@
                 </thead>
                 <tbody id="tabelaMetasDiariaBody"></tbody>
               </table>
+            </div>
+          </div>
+        </div>
+        <!-- RANKING PERSONALIZADO (intervalo de datas) -->
+        <div id="ranking-personalizado" class="ranking-pane" style="display: none;">
+          <div class="glass-panel section-card podium-container" style="margin-bottom: 20px; position: relative;">
+            <div class="card-header" style="justify-content: center; margin-bottom: 20px;">
+              <h2 style="font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">🏆 Destaques do Período</h2>
+              <button class="btn-ghost-sm btn-expand-podium" data-target="personalizado" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                Expandir
+              </button>
+            </div>
+            <div class="podium" id="podiumPersonalizadoContainer">
+              <p id="personalizadoHint" style="color: #94a3b8; font-size: 14px; text-align: center; width: 100%;">Escolha a data inicial e a final para ver o ranking do período.</p>
+            </div>
+          </div>
+
+          <div class="glass-panel section-card">
+            <div class="card-header">
+              <h2>Top Analistas (<span id="personalizadoPeriodLabel">Período</span>)</h2>
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap;">
+                <select id="personalizadoPreset" class="custom-select" title="Atalhos de período" style="width: auto; background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; color: #94a3b8; font-size: 12px; border-radius: 4px; padding: 4px 6px;">
+                  <option value="" hidden>Atalhos</option>
+                  <option value="mes">Mês atual</option>
+                  <option value="trimestre">Trimestre</option>
+                  <option value="semestre">Semestre</option>
+                  <option value="ano">Ano</option>
+                </select>
+                <input type="date" id="filterPersonalizadoStart" class="custom-select" title="Data inicial" style="width: auto; background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; color: #94a3b8; font-size: 12px; border-radius: 4px; padding: 4px 6px;">
+                <span style="color: #64748b; font-size: 12px;">→</span>
+                <input type="date" id="filterPersonalizadoEnd" class="custom-select" title="Data final" style="width: auto; background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; color: #94a3b8; font-size: 12px; border-radius: 4px; padding: 4px 6px;">
+                <button class="btn-ghost-sm" id="exportPdfBtnPersonalizado" title="Exportar para PDF" style="padding: 4px 10px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                  Exportar
+                </button>
+                <span style="color:#fbbf24">🏆</span>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="data-table styled-table ranking-table" id="tabelaMetasPersonalizado">
+                <thead>
+                  <tr>
+                    <th>Analista</th>
+                    <th>Meta Período</th>
+                    <th>Prev. até hoje</th>
+                    <th>Horas</th>
+                    <th>Saldo</th>
+                    <th>Pts</th>
+                    <th>Tasks</th>
+                    <th>(%)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaMetasPersonalizadoBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Comparativo mês a mês do período selecionado -->
+          <div class="glass-panel section-card" style="margin-top: 20px;">
+            <div class="card-header">
+              <h2>Comparativo por Mês <span style="font-size: 12px; color: #64748b; font-weight: 400;">(variação vs. mês anterior)</span></h2>
+            </div>
+            <div id="comparativoMesesContainer" style="padding: 0 4px 10px;">
+              <p style="color: #94a3b8; font-size: 13px; padding: 10px 16px;">Aplique um período para ver o comparativo.</p>
             </div>
           </div>
         </div>
