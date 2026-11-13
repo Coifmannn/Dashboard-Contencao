@@ -1794,6 +1794,41 @@ function debounce(func, wait) {
 }
 
 
+// --- Verificação manual de atualização (Configurações) ---
+(function initManualUpdateCheck() {
+  const btn = document.getElementById('btnCheckUpdate');
+  const msg = document.getElementById('updateCheckMsg');
+  const label = document.getElementById('appVersionLabel');
+  if (!btn || !window.api || !window.api.checkForUpdatesManual) return;
+
+  window.api.getAppVersion().then(v => {
+    label.textContent = v.version + (v.packaged ? '' : ' (desenvolvimento)');
+  }).catch(() => {});
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    msg.textContent = 'Verificando...';
+    try {
+      const r = await window.api.checkForUpdatesManual();
+      const texts = {
+        'dev': 'Modo desenvolvimento: o atualizador só funciona no app instalado.',
+        'up-to-date': `Você já está na versão mais recente (${r.current}).`,
+        'available': `Versão ${r.version} encontrada! O download começou.`,
+        'downloading': `Baixando a versão ${r.version}...`,
+        'ready': `Versão ${r.version} já baixada e pronta para instalar.`,
+        'busy': 'Já existe uma verificação em andamento. Tente em instantes.',
+        'error': `Não foi possível verificar: ${r.message || 'erro desconhecido'}`
+      };
+      msg.textContent = texts[r.result] || '';
+    } catch (e) {
+      msg.textContent = 'Erro ao verificar: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+
+
 // --- Modal de atualização do app ---
 (function initUpdateModal() {
   const modal = document.getElementById('updateModal');

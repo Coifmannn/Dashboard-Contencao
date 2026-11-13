@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('api', {
   getUpdaterStatus: () => ipcRenderer.invoke('updater:get-status'),
   installUpdate: () => ipcRenderer.invoke('updater:install'),
   retryUpdate: () => ipcRenderer.invoke('updater:retry'),
+  getAppVersion: () => ipcRenderer.invoke('updater:get-version'),
+  checkForUpdatesManual: () => ipcRenderer.invoke('updater:check-manual'),
   dismissUpdate: () => ipcRenderer.invoke('updater:dismiss'),
   onUpdaterStatus: (callback) => {
     const handler = (event, data) => callback(data);

@@ -21,6 +21,8 @@ function registerIpc() {
     if (autoUpdater && lastStatus.status === 'ready') autoUpdater.quitAndInstall();
   });
   ipcMain.handle('updater:retry', () => check());
+  ipcMain.handle('updater:get-version', () => ({ version: app.getVersion(), packaged: app.isPackaged }));
+  ipcMain.handle('updater:check-manual', () => checkManual());
   ipcMain.handle('updater:dismiss', () => {
     // "Depois": mantém autoInstallOnAppQuit; só esconde o modal
     if (lastStatus.status === 'ready') lastStatus = { ...lastStatus, dismissed: true };
@@ -34,6 +36,45 @@ async function check() {
     await autoUpdater.checkForUpdates();
   } catch (err) {
     console.error('[Updater] Falha ao verificar:', err.message);
+  } finally {
+    checking = false;
+  }
+}
+
+function isNewer(remote, local) {
+  const a = String(remote).split('.').map(n => parseInt(n, 10) || 0);
+  const b = String(local).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
+  }
+  return false;
+}
+
+// Verificação pedida pelo usuário: devolve o resultado para a tela de Configurações.
+// O download/modal seguem pelos eventos normais do autoUpdater.
+async function checkManual() {
+  const current = app.getVersion();
+  if (!autoUpdater) return { result: 'dev', current };
+  if (lastStatus.status === 'ready') {
+    emit({ status: 'ready', version: lastStatus.version }); // reabre o modal se estava dispensado
+    return { result: 'ready', current, version: lastStatus.version };
+  }
+  if (lastStatus.status === 'downloading' || lastStatus.status === 'progress') {
+    return { result: 'downloading', current, version: lastStatus.version };
+  }
+  if (checking) return { result: 'busy', current };
+  checking = true;
+  try {
+    const res = await autoUpdater.checkForUpdates();
+    const remote = res && res.updateInfo && res.updateInfo.version;
+    if (remote && isNewer(remote, current)) {
+      // Se um update-downloaded já foi emitido (arquivo em cache), reexibe o modal
+      return { result: 'available', current, version: remote };
+    }
+    return { result: 'up-to-date', current, version: remote };
+  } catch (err) {
+    console.error('[Updater] Falha na verificação manual:', err.message);
+    return { result: 'error', current, message: err.message };
   } finally {
     checking = false;
   }

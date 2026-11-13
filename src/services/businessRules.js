@@ -105,12 +105,29 @@ function isCancelledStatus(status) {
   return cleanString(status || '').includes('cancel');
 }
 
-function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework, status) {
+// Troca de banco: entregues ANTES desta data valem 1h/1pt; a partir dela não contabilizam nada.
+// Data fixa (e não "hoje") para que o reprocessamento do cache nos dias seguintes não mude o resultado.
+const TROCA_BANCO_CUTOFF = { y: 2026, m: 11, d: 13 };
+
+function isBeforeTrocaBancoCutoff(dataEntrega) {
+  const s = String(dataEntrega || '').trim();
+  let y, m, d, x;
+  if ((x = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) { d = +x[1]; m = +x[2]; y = +x[3]; }
+  else if ((x = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) { y = +x[1]; m = +x[2]; d = +x[3]; }
+  else return false; // sem data de entrega (ainda na fila): não contabiliza
+  const c = TROCA_BANCO_CUTOFF;
+  return (y * 10000 + m * 100 + d) < (c.y * 10000 + c.m * 100 + c.d);
+}
+
+function calculateHorasEPontos(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework, status, dataEntrega) {
   const result = calculateHorasEPontosBase(taskId, colaborador, subject, rawTipo, rawHoras, rawPontos, isRework);
   // Tarefas canceladas não contabilizam nada (horas e pontos)
   if (isCancelledStatus(status)) { result.horas = 0; result.pontos = 0; }
-  // Troca de banco (T. DE BANCO) vale 30min e 0.5pts (exceto se cancelada)
-  if (!isCancelledStatus(status) && classifyPriorityCategory(subject, rawTipo) === 'T. DE BANCO') { result.horas = 0.5; result.pontos = 0.5; }
+  // Troca de banco (T. DE BANCO): 1h/1pt se entregue até ontem (13/11/2026 exclusive); depois disso 0
+  if (!isCancelledStatus(status) && classifyPriorityCategory(subject, rawTipo) === 'T. DE BANCO') {
+    const v = isBeforeTrocaBancoCutoff(dataEntrega) ? 1 : 0;
+    result.horas = v; result.pontos = v;
+  }
   return result;
 }
 
@@ -574,7 +591,7 @@ function parseReportData(rawReport, category = 'concluidas') {
       const rawH = cols.horas !== -1 && cells[cols.horas] ? cells[cols.horas].value : 0;
       const rawP = cols.pontos !== -1 && cells[cols.pontos] ? cells[cols.pontos].value : 0;
 
-      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework, status);
+      const metrics = calculateHorasEPontos(taskId, mappedAnalyst, subject, tipo, rawH, rawP, isRework, status, dataEntrega);
       const priorityCategory = classifyPriorityCategory(subject, tipo);
       const week = getWeekOfMonth(dataEntrega || dataVencimento);
       const monthYear = finalCategory === 'concluidas' ? parseMonthYear(dataEntrega || dataVencimento) : (finalCategory === 'cancelada' ? 'Cancelada' : 'Outros');

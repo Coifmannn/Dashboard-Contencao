@@ -203,7 +203,7 @@ if (initialCache && initialCache.allTasks) {
   // Reavalia tarefas do cache aplicando as regras vigentes (sem contaminação de domínio e sem falso-positivo de API)
   const updatedTasks = initialCache.allTasks.map(t => {
     const priorityCategory = classifyPriorityCategory(t.subject, '');
-    const metrics = calculateHorasEPontos(t.taskId, t.analista, t.subject, '', 0, 0, t.isRework, t.status);
+    const metrics = calculateHorasEPontos(t.taskId, t.analista, t.subject, '', 0, 0, t.isRework, t.status, t.dataEntrega);
     const cancelled = cleanString(t.status || '').includes('cancel');
     return {
       ...t,
